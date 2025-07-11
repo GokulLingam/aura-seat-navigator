@@ -52,6 +52,16 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// Custom booking system colors
+				seat: {
+					available: 'hsl(var(--seat-available))',
+					occupied: 'hsl(var(--seat-occupied))',
+					selected: 'hsl(var(--seat-selected))'
+				},
+				resource: {
+					available: 'hsl(var(--resource-available))',
+					booked: 'hsl(var(--resource-booked))'
+				},
 				sidebar: {
 					DEFAULT: 'hsl(var(--sidebar-background))',
 					foreground: 'hsl(var(--sidebar-foreground))',

@@ -1,15 +1,15 @@
 import Navigation from '@/components/Navigation';
-import BookingDashboard from '@/components/BookingDashboard';
+import ResourceBooking from '@/components/ResourceBooking';
 
-const Index = () => {
+const ResourcesPage = () => {
   return (
     <div className="min-h-screen bg-gradient-subtle">
       <Navigation />
       <div className="container mx-auto px-4 py-6">
-        <BookingDashboard />
+        <ResourceBooking />
       </div>
     </div>
   );
 };
 
-export default Index;
+export default ResourcesPage;

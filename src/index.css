@@ -8,33 +8,49 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    --background: 0 0% 98%;
+    --foreground: 25 15% 25%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 25 15% 25%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 25 15% 25%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 25 15% 25%;
+    --primary-foreground: 0 0% 98%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 38 35% 85%;
+    --secondary-foreground: 25 15% 25%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 38 20% 92%;
+    --muted-foreground: 25 10% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 45 85% 65%;
+    --accent-foreground: 25 15% 25%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 98%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    --border: 38 20% 88%;
+    --input: 38 20% 88%;
+    --ring: 45 85% 65%;
+
+    /* Custom semantic tokens for office booking */
+    --seat-available: 120 50% 85%;
+    --seat-occupied: 0 50% 85%;
+    --seat-selected: 45 85% 65%;
+    --resource-available: 200 50% 85%;
+    --resource-booked: 280 50% 85%;
+    
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(25 15% 25%), hsl(45 85% 65%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 98%), hsl(38 20% 95%));
+    --gradient-golden: linear-gradient(135deg, hsl(45 85% 65%), hsl(40 75% 75%));
+    
+    /* Shadows */
+    --shadow-elegant: 0 10px 30px -10px hsl(25 15% 25% / 0.15);
+    --shadow-glow: 0 0 40px hsl(45 85% 65% / 0.2);
 
     --radius: 0.5rem;
 

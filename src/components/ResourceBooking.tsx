@@ -1,0 +1,318 @@
+import { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, Clock, Users, Monitor, Projector, Coffee, Car, Dumbbell, Wifi } from 'lucide-react';
+
+interface Resource {
+  id: string;
+  name: string;
+  type: 'meeting-room' | 'equipment' | 'amenity' | 'parking';
+  capacity?: number;
+  features: string[];
+  location: string;
+  availability: {
+    date: string;
+    slots: { time: string; available: boolean }[];
+  }[];
+  image?: string;
+  price?: number;
+}
+
+const ResourceBooking = () => {
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedResource, setSelectedResource] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [filterType, setFilterType] = useState<string>('all');
+
+  const resources: Resource[] = [
+    {
+      id: 'MR1',
+      name: 'Conference Room Alpha',
+      type: 'meeting-room',
+      capacity: 10,
+      features: ['Projector', 'Whiteboard', 'Video Conference', 'WiFi'],
+      location: 'Floor 3, Wing A',
+      availability: [
+        {
+          date: '2024-01-15',
+          slots: [
+            { time: '09:00-10:00', available: true },
+            { time: '10:00-11:00', available: false },
+            { time: '11:00-12:00', available: true },
+            { time: '14:00-15:00', available: true },
+            { time: '15:00-16:00', available: false },
+            { time: '16:00-17:00', available: true },
+          ]
+        }
+      ]
+    },
+    {
+      id: 'MR2',
+      name: 'Meeting Room Beta',
+      type: 'meeting-room',
+      capacity: 6,
+      features: ['TV Screen', 'Whiteboard', 'WiFi'],
+      location: 'Floor 3, Wing B',
+      availability: [
+        {
+          date: '2024-01-15',
+          slots: [
+            { time: '09:00-10:00', available: true },
+            { time: '10:00-11:00', available: true },
+            { time: '11:00-12:00', available: false },
+            { time: '14:00-15:00', available: true },
+            { time: '15:00-16:00', available: true },
+            { time: '16:00-17:00', available: false },
+          ]
+        }
+      ]
+    },
+    {
+      id: 'LAP1',
+      name: 'MacBook Pro 16"',
+      type: 'equipment',
+      features: ['M2 Pro Chip', '32GB RAM', '1TB SSD'],
+      location: 'IT Equipment Desk',
+      availability: [
+        {
+          date: '2024-01-15',
+          slots: [
+            { time: '09:00-12:00', available: true },
+            { time: '12:00-17:00', available: false },
+          ]
+        }
+      ]
+    },
+    {
+      id: 'CAR1',
+      name: 'Parking Space A1',
+      type: 'parking',
+      features: ['Covered', 'EV Charging', 'Security Camera'],
+      location: 'Underground Garage Level 1',
+      price: 5,
+      availability: [
+        {
+          date: '2024-01-15',
+          slots: [
+            { time: 'All Day', available: true },
+          ]
+        }
+      ]
+    },
+    {
+      id: 'GYM1',
+      name: 'Fitness Center',
+      type: 'amenity',
+      capacity: 15,
+      features: ['Cardio Equipment', 'Weights', 'Lockers', 'Shower'],
+      location: 'Floor 1, Health & Wellness',
+      availability: [
+        {
+          date: '2024-01-15',
+          slots: [
+            { time: '07:00-09:00', available: true },
+            { time: '12:00-14:00', available: true },
+            { time: '17:00-19:00', available: false },
+          ]
+        }
+      ]
+    }
+  ];
+
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'meeting-room': return <Users className="w-5 h-5" />;
+      case 'equipment': return <Monitor className="w-5 h-5" />;
+      case 'amenity': return <Coffee className="w-5 h-5" />;
+      case 'parking': return <Car className="w-5 h-5" />;
+      default: return <Calendar className="w-5 h-5" />;
+    }
+  };
+
+  const getFeatureIcon = (feature: string) => {
+    switch (feature.toLowerCase()) {
+      case 'projector': return <Projector className="w-3 h-3" />;
+      case 'wifi': return <Wifi className="w-3 h-3" />;
+      case 'video conference': return <Monitor className="w-3 h-3" />;
+      case 'tv screen': return <Monitor className="w-3 h-3" />;
+      case 'cardio equipment': 
+      case 'weights': return <Dumbbell className="w-3 h-3" />;
+      case 'ev charging': return <Car className="w-3 h-3" />;
+      default: return null;
+    }
+  };
+
+  const filteredResources = resources.filter(resource => 
+    filterType === 'all' || resource.type === filterType
+  );
+
+  const selectedResourceData = resources.find(r => r.id === selectedResource);
+  const availableSlots = selectedResourceData?.availability.find(a => a.date === selectedDate)?.slots || [];
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <h1 className="text-3xl font-bold">Resource Booking</h1>
+        <p className="text-muted-foreground">Book meeting rooms, equipment, and amenities</p>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex-1">
+          <Label htmlFor="date">Select Date</Label>
+          <Input
+            id="date"
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <div className="flex-1">
+          <Label htmlFor="type">Resource Type</Label>
+          <Select value={filterType} onValueChange={setFilterType}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="All resources" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Resources</SelectItem>
+              <SelectItem value="meeting-room">Meeting Rooms</SelectItem>
+              <SelectItem value="equipment">Equipment</SelectItem>
+              <SelectItem value="amenity">Amenities</SelectItem>
+              <SelectItem value="parking">Parking</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Resource List */}
+        <div className="lg:col-span-2 space-y-4">
+          {filteredResources.map((resource) => (
+            <Card 
+              key={resource.id} 
+              className={`cursor-pointer transition-all duration-200 hover:shadow-md ${
+                selectedResource === resource.id ? 'ring-2 ring-accent border-accent' : ''
+              }`}
+              onClick={() => setSelectedResource(resource.id)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex items-center justify-center w-10 h-10 bg-accent/20 rounded-lg">
+                      {getTypeIcon(resource.type)}
+                    </div>
+                    <div>
+                      <CardTitle className="text-lg">{resource.name}</CardTitle>
+                      <p className="text-sm text-muted-foreground">{resource.location}</p>
+                    </div>
+                  </div>
+                  {resource.price && (
+                    <Badge variant="secondary">${resource.price}/day</Badge>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {resource.capacity && (
+                    <div className="flex items-center space-x-2 text-sm">
+                      <Users className="w-4 h-4 text-muted-foreground" />
+                      <span>Capacity: {resource.capacity} people</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex flex-wrap gap-1">
+                    {resource.features.map((feature, idx) => (
+                      <Badge key={idx} variant="outline" className="text-xs">
+                        {getFeatureIcon(feature)}
+                        <span className={getFeatureIcon(feature) ? 'ml-1' : ''}>{feature}</span>
+                      </Badge>
+                    ))}
+                  </div>
+
+                  {/* Availability Preview */}
+                  <div className="text-sm">
+                    <span className="text-muted-foreground">Available slots today: </span>
+                    <span className="font-medium">
+                      {availableSlots.filter(slot => slot.available).length} of {availableSlots.length}
+                    </span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+
+        {/* Booking Panel */}
+        <div>
+          {selectedResource ? (
+            <Card className="sticky top-6">
+              <CardHeader>
+                <CardTitle>Book {selectedResourceData?.name}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Available Time Slots</Label>
+                  <div className="grid grid-cols-1 gap-2 mt-2">
+                    {availableSlots.map((slot, idx) => (
+                      <Button
+                        key={idx}
+                        variant={selectedSlot === slot.time ? 'default' : 'outline'}
+                        size="sm"
+                        disabled={!slot.available}
+                        onClick={() => setSelectedSlot(slot.time)}
+                        className="justify-start"
+                      >
+                        <Clock className="w-4 h-4 mr-2" />
+                        {slot.time}
+                        {!slot.available && (
+                          <Badge variant="destructive" className="ml-auto text-xs">
+                            Booked
+                          </Badge>
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedSlot && (
+                  <div className="space-y-3 pt-3 border-t">
+                    <div className="text-sm">
+                      <p><strong>Resource:</strong> {selectedResourceData?.name}</p>
+                      <p><strong>Date:</strong> {selectedDate}</p>
+                      <p><strong>Time:</strong> {selectedSlot}</p>
+                      {selectedResourceData?.price && (
+                        <p><strong>Cost:</strong> ${selectedResourceData.price}</p>
+                      )}
+                    </div>
+                    <Button variant="golden" className="w-full">
+                      Confirm Booking
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="flex items-center justify-center h-64 text-center">
+                <div>
+                  <Calendar className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                  <p className="text-muted-foreground">
+                    Select a resource to view available time slots and book
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ResourceBooking;
