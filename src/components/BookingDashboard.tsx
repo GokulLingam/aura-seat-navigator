@@ -2,7 +2,8 @@ import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, MapPin, Users, Monitor, Coffee, Phone } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Monitor, Coffee, Phone, Settings, UserPlus, Shield } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface Booking {
   id: string;
@@ -16,6 +17,7 @@ interface Booking {
 }
 
 const BookingDashboard = () => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'history'>('today');
 
   const bookings: Booking[] = [
@@ -106,59 +108,21 @@ const BookingDashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold">Booking Dashboard</h1>
-        <p className="text-muted-foreground">Manage your workspace reservations</p>
+        <div className="flex items-center gap-3">
+          <h1 className="text-3xl font-bold">Welcome back, {user?.name || 'User'}!</h1>
+          {user?.role === 'admin' && (
+            <Badge variant="secondary" className="text-sm">Administrator</Badge>
+          )}
+        </div>
+        <p className="text-muted-foreground">
+          {user?.role === 'admin' 
+            ? 'Manage workspace reservations and system settings' 
+            : 'Manage your workspace reservations'
+          }
+        </p>
       </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBookings}</div>
-            <p className="text-xs text-muted-foreground">All time bookings</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.todayBookings}</div>
-            <p className="text-xs text-muted-foreground">Active reservations</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
-            <MapPin className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.upcomingBookings}</div>
-            <p className="text-xs text-muted-foreground">Future bookings</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.confirmedBookings}</div>
-            <p className="text-xs text-muted-foreground">Confirmed bookings</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Booking Tabs */}
-      <Card>
+{/* Booking Tabs */}
+<Card>
         <CardHeader>
           <div className="flex space-x-1 bg-muted p-1 rounded-lg">
             {(['today', 'upcoming', 'history'] as const).map((tab) => (
@@ -225,6 +189,80 @@ const BookingDashboard = () => {
           </div>
         </CardContent>
       </Card>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalBookings}</div>
+            <p className="text-xs text-muted-foreground">All time bookings</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Today</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.todayBookings}</div>
+            <p className="text-xs text-muted-foreground">Active reservations</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Upcoming</CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.upcomingBookings}</div>
+            <p className="text-xs text-muted-foreground">Future bookings</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.confirmedBookings}</div>
+            <p className="text-xs text-muted-foreground">Confirmed bookings</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Admin Section - Only visible to admin users */}
+      {user?.role === 'admin' && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Shield className="w-5 h-5" />
+              Administrator Panel
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2">
+                <UserPlus className="w-6 h-6" />
+                <span>Manage Users</span>
+              </Button>
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2">
+                <Settings className="w-6 h-6" />
+                <span>System Settings</span>
+              </Button>
+              <Button variant="outline" className="h-20 flex flex-col items-center justify-center gap-2">
+                <Calendar className="w-6 h-6" />
+                <span>All Bookings</span>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

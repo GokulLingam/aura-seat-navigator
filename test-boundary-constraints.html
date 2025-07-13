@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Boundary Constraints Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .feature-list {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .feature-list h3 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        .feature-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .feature-list li {
+            margin: 5px 0;
+        }
+        .code-block {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+        }
+        .warning {
+            background: #f8d7da;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>Boundary Constraints - Floor Layout Protection</h1>
+    
+    <div class="test-section">
+        <h2>What This Feature Does</h2>
+        <p>The boundary constraints ensure that all seats, desk areas, and symbols stay within the floor layout boundaries at all times:</p>
+        
+        <div class="highlight">
+            <strong>Floor Layout:</strong> The main office area defined by officeLayout (x: 0, y: 0, width: 120, height: 60)
+            <br><br>
+            <strong>Boundary Padding:</strong> 2 units of padding from the edges to prevent items from touching the walls
+            <br><br>
+            <strong>Constrained Items:</strong> Seats, desk areas, floor symbols, and all new creations
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Boundary Constraint Implementation</h2>
+        <div class="code-block">
+// Helper function to constrain position within floor layout bounds
+const constrainPosition = (currentX: number, currentY: number, itemWidth: number = 4, itemHeight: number = 4) => {
+  const minX = officeLayout.x + 2; // 2 units padding from edge
+  const maxX = officeLayout.x + officeLayout.width - itemWidth - 2;
+  const minY = officeLayout.y + 2;
+  const maxY = officeLayout.y + officeLayout.height - itemHeight - 2;
+  
+  return {
+    x: Math.max(minX, Math.min(maxX, currentX)),
+    y: Math.max(minY, Math.min(maxY, currentY))
+  };
+};
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Where Boundary Constraints Are Applied</h2>
+        <div class="feature-list">
+            <h3>1. Drag and Drop Operations</h3>
+            <ul>
+                <li><strong>Seats:</strong> Cannot be dragged outside the floor layout</li>
+                <li><strong>Desk Areas:</strong> Cannot be dragged outside the floor layout</li>
+                <li><strong>Floor Symbols:</strong> Cannot be dragged outside the floor layout</li>
+                <li><strong>Multi-selection:</strong> All selected items respect boundaries when moved together</li>
+            </ul>
+            
+            <h3>2. Movement Button Operations</h3>
+            <ul>
+                <li><strong>Arrow Keys:</strong> Movement buttons respect boundaries</li>
+                <li><strong>5-unit increments:</strong> Items stop at boundaries even if movement would exceed them</li>
+                <li><strong>Combined movement:</strong> Works for both seats and desk areas</li>
+            </ul>
+            
+            <h3>3. Creation Operations</h3>
+            <ul>
+                <li><strong>New Seats:</strong> Can only be placed within floor layout</li>
+                <li><strong>New Desk Areas:</strong> Creation area is constrained to floor layout</li>
+                <li><strong>Floor Symbols:</strong> Can only be placed within floor layout</li>
+                <li><strong>Minimum sizes:</strong> Desk areas have minimum size of 5x5 units</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Boundary Calculation Details</h2>
+        <div class="feature-list">
+            <h3>Floor Layout Dimensions</h3>
+            <ul>
+                <li><strong>X Range:</strong> 0 to 120 units</li>
+                <li><strong>Y Range:</strong> 0 to 60 units</li>
+                <li><strong>Padding:</strong> 2 units from each edge</li>
+                <li><strong>Effective Range:</strong> X: 2-118, Y: 2-58</li>
+            </ul>
+            
+            <h3>Item-Specific Constraints</h3>
+            <ul>
+                <li><strong>Seats:</strong> 4x4 units, constrained to X: 2-114, Y: 2-54</li>
+                <li><strong>Desk Areas:</strong> Variable size, constrained by their width/height</li>
+                <li><strong>Symbols:</strong> 4x4 units, constrained to X: 2-114, Y: 2-54</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Benefits</h2>
+        <div class="feature-list">
+            <ul>
+                <li><strong>Data Integrity:</strong> Prevents items from being placed in invalid locations</li>
+                <li><strong>User Experience:</strong> Clear visual feedback when items hit boundaries</li>
+                <li><strong>Realistic Layout:</strong> Ensures floor plan remains practical and usable</li>
+                <li><strong>Consistent Behavior:</strong> All movement operations respect the same boundaries</li>
+                <li><strong>Automatic Correction:</strong> Items are automatically constrained without user intervention</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Testing Checklist</h2>
+        <div class="feature-list">
+            <input type="checkbox" id="test1"> <label for="test1">Drag seats to floor layout edges - they stop at boundaries</label><br>
+            <input type="checkbox" id="test2"> <label for="test2">Use movement arrows to move seats to edges - they stop at boundaries</label><br>
+            <input type="checkbox" id="test3"> <label for="test3">Drag desk areas to edges - they respect their size constraints</label><br>
+            <input type="checkbox" id="test4"> <label for="test4">Create new desk areas near edges - they're constrained to fit</label><br>
+            <input type="checkbox" id="test5"> <label for="test5">Place new seats near edges - they're constrained to floor layout</label><br>
+            <input type="checkbox" id="test6"> <label for="test6">Place floor symbols near edges - they're constrained</label><br>
+            <input type="checkbox" id="test7"> <label for="test7">Multi-select items and drag to edges - all respect boundaries</label><br>
+            <input type="checkbox" id="test8"> <label for="test8">Try to create desk areas larger than floor layout - they're resized to fit</label><br>
+            <input type="checkbox" id="test9"> <label for="test9">Verify padding of 2 units from all edges is maintained</label><br>
+            <input type="checkbox" id="test10"> <label for="test10">Test boundary constraints work in all zoom levels</label>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Edge Cases Handled</h2>
+        <div class="warning">
+            <strong>Large Items:</strong> Desk areas larger than the floor layout are automatically resized to fit
+            <br><br>
+            <strong>Corner Cases:</strong> Items are prevented from being placed exactly on the boundary lines
+            <br><br>
+            <strong>Multi-selection:</strong> When moving multiple items, each item is individually constrained
+            <br><br>
+            <strong>Creation Preview:</strong> Desk area creation preview respects boundaries in real-time
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>How to Test</h2>
+        <ol>
+            <li>Open the React application and navigate to Floor Plan</li>
+            <li>Enable Edit Mode</li>
+            <li>Try dragging existing seats to the edges of the floor layout</li>
+            <li>Use movement arrows to move seats to boundaries</li>
+            <li>Create new desk areas near the edges</li>
+            <li>Place new seats and symbols near boundaries</li>
+            <li>Verify all items stay within the floor layout</li>
+            <li>Test multi-selection and movement</li>
+        </ol>
+    </div>
+
+    <script>
+        // Simple test to verify the boundary constraints
+        console.log('Boundary Constraints Test Page Loaded');
+        console.log('Key Features:');
+        console.log('- All items constrained within floor layout');
+        console.log('- 2-unit padding from edges');
+        console.log('- Real-time boundary checking during drag');
+        console.log('- Movement buttons respect boundaries');
+        console.log('- Creation operations are constrained');
+        
+        // Simulate boundary calculation
+        const officeLayout = { x: 0, y: 0, width: 120, height: 60 };
+        const constrainPosition = (x, y, width = 4, height = 4) => {
+            const minX = officeLayout.x + 2;
+            const maxX = officeLayout.x + officeLayout.width - width - 2;
+            const minY = officeLayout.y + 2;
+            const maxY = officeLayout.y + officeLayout.height - height - 2;
+            
+            return {
+                x: Math.max(minX, Math.min(maxX, x)),
+                y: Math.max(minY, Math.min(maxY, y))
+            };
+        };
+        
+        console.log('Boundary test - seat at (130, 70):', constrainPosition(130, 70));
+        console.log('Boundary test - seat at (-5, -5):', constrainPosition(-5, -5));
+    </script>
+</body>
+</html> 

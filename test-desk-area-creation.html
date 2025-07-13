@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Desk Area Creation Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .feature-list {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 15px 0;
+        }
+        .feature-list h3 {
+            margin-top: 0;
+            color: #0066cc;
+        }
+        .feature-list ul {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .feature-list li {
+            margin: 5px 0;
+        }
+        .code-block {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        .highlight {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 4px;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+<body>
+    <h1>Desk Area Creation - Updated Functionality</h1>
+    
+    <div class="test-section">
+        <h2>What Changed</h2>
+        <p>The desk area creation functionality has been simplified and improved:</p>
+        
+        <div class="highlight">
+            <strong>Before:</strong> Click "Desk Area" button → Click and drag on floor plan to create desk area
+            <br><br>
+            <strong>After:</strong> Click "Desk Area" button → Desk area is instantly created in the center of the floor layout
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>New Features</h2>
+        <div class="feature-list">
+            <h3>Instant Desk Area Creation</h3>
+            <ul>
+                <li><strong>One-click creation:</strong> Click the "Desk Area" button and a desk area is instantly created</li>
+                <li><strong>Center placement:</strong> New desk areas are automatically placed in the center of the office layout</li>
+                <li><strong>Default size:</strong> Each new desk area has a default size of 20x16 units</li>
+                <li><strong>Auto-naming:</strong> Desk areas are automatically named "Desk Area 1", "Desk Area 2", etc.</li>
+                <li><strong>Full functionality:</strong> New desk areas support all existing features (drag, resize, select, move)</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>How It Works</h2>
+        <div class="code-block">
+// Calculate center of the floor layout
+const centerX = officeLayout.x + officeLayout.width / 2;
+const centerY = officeLayout.y + officeLayout.height / 2;
+
+// Create a new desk area with default size in the center
+const newDeskArea = {
+  id: `desk-area-${Date.now()}`,
+  x: centerX - 10, // Default width is 20, so center it
+  y: centerY - 8,  // Default height is 16, so center it
+  width: 20,       // Default width
+  height: 16,      // Default height
+  name: `Desk Area ${customDeskAreas.length + 1}`
+};
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Benefits</h2>
+        <div class="feature-list">
+            <ul>
+                <li><strong>Faster workflow:</strong> No need to click and drag - instant creation</li>
+                <li><strong>Consistent placement:</strong> All desk areas start in a predictable location</li>
+                <li><strong>Better UX:</strong> Less user interaction required</li>
+                <li><strong>Easier positioning:</strong> Users can then drag the desk area to the desired location</li>
+                <li><strong>Size customization:</strong> Users can adjust the size using the size controls in the toolbar</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Usage Instructions</h2>
+        <ol>
+            <li>Enable <strong>Edit Mode</strong> in the floor plan</li>
+            <li>Click the <strong>"Desk Area"</strong> button in the Creation section</li>
+            <li>A new desk area will instantly appear in the center of the floor layout</li>
+            <li>Use the movement arrows to reposition the desk area</li>
+            <li>Use the size controls (W/H fields) to adjust dimensions</li>
+            <li>Drag the desk area to fine-tune its position</li>
+            <li>Use <strong>Save Changes</strong> to persist the new desk area</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Technical Details</h2>
+        <div class="feature-list">
+            <h3>State Management</h3>
+            <ul>
+                <li>Custom desk areas are stored in <code>customDeskAreas</code> state</li>
+                <li>They support the same position and size tracking as original desk areas</li>
+                <li>Selection, movement, and resizing work identically</li>
+                <li>Custom desk areas are included in the save function</li>
+            </ul>
+            
+            <h3>Rendering</h3>
+            <ul>
+                <li>Custom desk areas are rendered with a distinct accent color</li>
+                <li>They support selection highlighting</li>
+                <li>Drag and drop functionality is fully implemented</li>
+                <li>Size controls work for both original and custom desk areas</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Testing Checklist</h2>
+        <div class="feature-list">
+            <input type="checkbox" id="test1"> <label for="test1">Click "Desk Area" button creates a desk area instantly</label><br>
+            <input type="checkbox" id="test2"> <label for="test2">New desk area appears in the center of the floor layout</label><br>
+            <input type="checkbox" id="test3"> <label for="test3">Desk area has default size of 20x16 units</label><br>
+            <input type="checkbox" id="test4"> <label for="test4">Desk area can be selected and moved with arrow buttons</label><br>
+            <input type="checkbox" id="test5"> <label for="test5">Desk area can be resized using W/H controls</label><br>
+            <input type="checkbox" id="test6"> <label for="test6">Desk area can be dragged to reposition</label><br>
+            <input type="checkbox" id="test7"> <label for="test7">Multiple desk areas can be created</label><br>
+            <input type="checkbox" id="test8"> <label for="test8">Desk areas are included in "Select All" operations</label><br>
+            <input type="checkbox" id="test9"> <label for="test9">Save function includes custom desk areas</label><br>
+            <input type="checkbox" id="test10"> <label for="test10">No cursor changes or click-and-drag behavior</label>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Next Steps</h2>
+        <p>To test this functionality:</p>
+        <ol>
+            <li>Open the React application</li>
+            <li>Navigate to the Floor Plan page</li>
+            <li>Enable Edit Mode</li>
+            <li>Click the "Desk Area" button in the Creation section</li>
+            <li>Verify that a desk area appears instantly in the center</li>
+            <li>Test all the functionality (move, resize, drag, select)</li>
+        </ol>
+    </div>
+
+    <script>
+        // Simple test to verify the functionality
+        console.log('Desk Area Creation Test Page Loaded');
+        console.log('Key Changes:');
+        console.log('- Instant desk area creation (no click-and-drag)');
+        console.log('- Center placement with default size');
+        console.log('- Full functionality support (move, resize, select)');
+        console.log('- Improved user experience');
+    </script>
+</body>
+</html> 

@@ -10,17 +10,20 @@ import {
   User, 
   Bell,
   Menu,
-  X
+  X,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Navigation = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const navigationItems = [
     { path: '/', label: 'Dashboard', icon: Building2 },
-    { path: '/floor-plan', label: 'Floor Plan', icon: MapPin },
-    { path: '/resources', label: 'Resources', icon: Calendar },
+    { path: '/floor-plan', label: 'Book Seats', icon: MapPin },
+    { path: '/resources', label: 'Book Resource', icon: Calendar },
   ];
 
   const isActivePath = (path: string) => {
@@ -40,7 +43,7 @@ const Navigation = () => {
             <div className="w-8 h-8 bg-gradient-golden rounded-lg flex items-center justify-center">
               <Building2 className="w-5 h-5 text-accent-foreground" />
             </div>
-            <span className="text-xl font-bold">WorkSpace</span>
+            <span className="text-xl font-bold">UPS Reserve</span>
           </Link>
 
           {/* Navigation Links */}
@@ -83,7 +86,15 @@ const Navigation = () => {
           {/* User Profile */}
           <Button variant="outline" size="sm" className="flex items-center space-x-2">
             <User className="w-4 h-4" />
-            <span>John Doe</span>
+            <span>{user?.name || 'User'}</span>
+            {user?.role === 'admin' && (
+              <Badge variant="secondary" className="text-xs">Admin</Badge>
+            )}
+          </Button>
+
+          {/* Logout */}
+          <Button variant="ghost" size="sm" onClick={logout}>
+            <LogOut className="w-4 h-4" />
           </Button>
         </div>
       </nav>
@@ -96,7 +107,7 @@ const Navigation = () => {
             <div className="w-8 h-8 bg-gradient-golden rounded-lg flex items-center justify-center">
               <Building2 className="w-5 h-5 text-accent-foreground" />
             </div>
-            <span className="text-lg font-bold">WorkSpace</span>
+            <span className="text-lg font-bold">UPS Reserve</span>
           </Link>
 
           {/* Mobile Menu Button */}
@@ -147,7 +158,14 @@ const Navigation = () => {
                 </Button>
                 <Button variant="ghost" size="sm" className="w-full justify-start space-x-2">
                   <User className="w-4 h-4" />
-                  <span>Profile</span>
+                  <span>{user?.name || 'Profile'}</span>
+                  {user?.role === 'admin' && (
+                    <Badge variant="secondary" className="text-xs ml-auto">Admin</Badge>
+                  )}
+                </Button>
+                <Button variant="ghost" size="sm" className="w-full justify-start space-x-2" onClick={logout}>
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
                 </Button>
               </div>
             </div>

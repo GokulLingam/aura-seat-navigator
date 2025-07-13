@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Seat Drag & Drop Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .floor-plan {
+            border: 2px solid #ddd;
+            background: #fafafa;
+            position: relative;
+            width: 800px;
+            height: 600px;
+            margin: 20px auto;
+            overflow: auto;
+        }
+        .seat {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            background: #4CAF50;
+            border: 2px solid #45a049;
+            border-radius: 4px;
+            cursor: grab;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            user-select: none;
+            transition: all 0.2s ease;
+        }
+        .seat:hover {
+            background: #45a049;
+            transform: scale(1.1);
+        }
+        .seat.selected {
+            background: #2196F3;
+            border-color: #1976D2;
+            box-shadow: 0 0 10px rgba(33, 150, 243, 0.5);
+        }
+        .seat.dragging {
+            cursor: grabbing;
+            opacity: 0.8;
+            z-index: 1000;
+        }
+        .button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        .button:hover {
+            background: #0056b3;
+        }
+        .button.danger {
+            background: #dc3545;
+        }
+        .button.danger:hover {
+            background: #c82333;
+        }
+        .button.success {
+            background: #28a745;
+        }
+        .button.success:hover {
+            background: #218838;
+        }
+        .status {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            background: #e7f3ff;
+            border-left: 4px solid #007bff;
+        }
+        .coordinates {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Seat Drag & Drop Test</h1>
+        
+        <div class="controls">
+            <button class="button" onclick="toggleEditMode()">Toggle Edit Mode</button>
+            <button class="button success" onclick="savePositions()">Save Positions</button>
+            <button class="button danger" onclick="resetPositions()">Reset Positions</button>
+            
+            <!-- Selection Controls -->
+            <div style="display: inline-block; margin: 0 10px;">
+                <span style="font-weight: bold; margin-right: 5px;">Select:</span>
+                <button class="button" onclick="selectAll()">All</button>
+                <button class="button" onclick="deselectAll()">None</button>
+                <button class="button" onclick="invertSelection()">Invert</button>
+            </div>
+            
+            <!-- Rotation Controls -->
+            <div style="display: inline-block; margin: 0 10px;">
+                <span style="font-weight: bold; margin-right: 5px;">Rotation:</span>
+                <button class="button" onclick="rotateLeft()" id="rotateLeftBtn" disabled>↶</button>
+                <button class="button" onclick="rotateRight()" id="rotateRightBtn" disabled>↷</button>
+            </div>
+            
+            <!-- Movement Controls -->
+            <div style="display: inline-block; margin: 0 10px;">
+                <span style="font-weight: bold; margin-right: 5px;">Move:</span>
+                <div style="display: inline-grid; grid-template-columns: repeat(3, 1fr); gap: 2px;">
+                    <div></div>
+                    <button class="button" onclick="moveSeats('up')" id="moveUpBtn" disabled>↑</button>
+                    <div></div>
+                    <button class="button" onclick="moveSeats('left')" id="moveLeftBtn" disabled>←</button>
+                    <button class="button" onclick="moveSeats('down')" id="moveDownBtn" disabled>↓</button>
+                    <button class="button" onclick="moveSeats('right')" id="moveRightBtn" disabled>→</button>
+                </div>
+            </div>
+            
+            <div class="status" id="status">Ready to test drag and drop functionality</div>
+        </div>
+
+        <div class="floor-plan" id="floorPlan">
+            <!-- Seats will be generated here -->
+        </div>
+
+        <div class="coordinates" id="coordinates">
+            Mouse: (0, 0)<br>
+            Edit Mode: <span id="editModeStatus">OFF</span><br>
+            Selected: <span id="selectedCount">0</span>
+        </div>
+    </div>
+
+    <script>
+        // Configuration
+        let isEditMode = false;
+        let selectedSeats = new Set();
+        let draggedSeat = null;
+        let isDragging = false;
+        let dragStartPos = { x: 0, y: 0 };
+        let originalPositions = {};
+        let currentPositions = {};
+
+        // Sample seat data
+        const seats = [
+            { id: 'A1', x: 50, y: 50, status: 'available' },
+            { id: 'A2', x: 100, y: 50, status: 'available' },
+            { id: 'A3', x: 150, y: 50, status: 'available' },
+            { id: 'B1', x: 50, y: 100, status: 'available' },
+            { id: 'B2', x: 100, y: 100, status: 'available' },
+            { id: 'B3', x: 150, y: 100, status: 'available' },
+            { id: 'C1', x: 50, y: 150, status: 'available' },
+            { id: 'C2', x: 100, y: 150, status: 'available' },
+            { id: 'C3', x: 150, y: 150, status: 'available' }
+        ];
+
+        // Initialize
+        function init() {
+            seats.forEach(seat => {
+                originalPositions[seat.id] = { x: seat.x, y: seat.y };
+                currentPositions[seat.id] = { x: seat.x, y: seat.y };
+            });
+            renderSeats();
+            updateStatus();
+        }
+
+        // Render seats
+        function renderSeats() {
+            const floorPlan = document.getElementById('floorPlan');
+            floorPlan.innerHTML = '';
+            
+            seats.forEach(seat => {
+                const seatElement = document.createElement('div');
+                seatElement.className = 'seat';
+                seatElement.id = `seat-${seat.id}`;
+                seatElement.textContent = seat.id;
+                seatElement.style.left = currentPositions[seat.id].x + 'px';
+                seatElement.style.top = currentPositions[seat.id].y + 'px';
+                
+                // Apply rotation
+                if (seat.rotation) {
+                    seatElement.style.transform = `rotate(${seat.rotation}deg)`;
+                }
+                
+                if (selectedSeats.has(seat.id)) {
+                    seatElement.classList.add('selected');
+                }
+                
+                if (isEditMode) {
+                    seatElement.addEventListener('mousedown', (e) => handleSeatMouseDown(e, seat.id));
+                    seatElement.addEventListener('click', (e) => {
+                        if (!isDragging) {
+                            handleSeatSelection(seat.id, e);
+                        }
+                    });
+                } else {
+                    seatElement.addEventListener('click', () => handleSeatClick(seat.id));
+                }
+                
+                floorPlan.appendChild(seatElement);
+            });
+            
+            // Update button states
+            updateButtonStates();
+        }
+
+        // Handle seat mouse down (for dragging)
+        function handleSeatMouseDown(e, seatId) {
+            if (!isEditMode) return;
+            
+            e.stopPropagation();
+            // Don't prevent default to allow click events
+            
+            const seatElement = document.getElementById(`seat-${seatId}`);
+            draggedSeat = seatId;
+            isDragging = false;
+            dragStartPos = { x: e.clientX, y: e.clientY };
+            
+            // Select seat if not already selected
+            if (!selectedSeats.has(seatId)) {
+                if (!e.ctrlKey && !e.metaKey) {
+                    selectedSeats.clear();
+                }
+                selectedSeats.add(seatId);
+                renderSeats();
+            }
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+        }
+
+        // Handle mouse move
+        function handleMouseMove(e) {
+            if (!draggedSeat) return;
+            
+            const distance = Math.sqrt(
+                Math.pow(e.clientX - dragStartPos.x, 2) + 
+                Math.pow(e.clientY - dragStartPos.y, 2)
+            );
+            
+            if (!isDragging && distance > 5) {
+                isDragging = true;
+                e.preventDefault(); // Prevent default only when actually dragging
+                document.getElementById(`seat-${draggedSeat}`).classList.add('dragging');
+            }
+            
+            if (isDragging) {
+                const deltaX = e.clientX - dragStartPos.x;
+                const deltaY = e.clientY - dragStartPos.y;
+                
+                // Move all selected seats
+                selectedSeats.forEach(seatId => {
+                    currentPositions[seatId].x += deltaX;
+                    currentPositions[seatId].y += deltaY;
+                });
+                
+                dragStartPos = { x: e.clientX, y: e.clientY };
+                renderSeats();
+            }
+        }
+
+        // Handle mouse up
+        function handleMouseUp(e) {
+            if (draggedSeat) {
+                if (isDragging) {
+                    document.getElementById(`seat-${draggedSeat}`).classList.remove('dragging');
+                    updateStatus('Seats moved successfully');
+                } else {
+                    // This was just a click
+                    handleSeatSelection(draggedSeat, e);
+                }
+            }
+            
+            draggedSeat = null;
+            isDragging = false;
+            
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+        }
+
+        // Handle seat click (non-edit mode)
+        function handleSeatClick(seatId) {
+            updateStatus(`Clicked seat ${seatId}`);
+        }
+
+        // Handle seat selection (edit mode)
+        function handleSeatSelection(seatId, e) {
+            if (e.ctrlKey || e.metaKey) {
+                // Multi-select
+                if (selectedSeats.has(seatId)) {
+                    selectedSeats.delete(seatId);
+                } else {
+                    selectedSeats.add(seatId);
+                }
+            } else {
+                // Single select
+                selectedSeats.clear();
+                selectedSeats.add(seatId);
+            }
+            renderSeats();
+            updateStatus(`Selected ${selectedSeats.size} seat(s)`);
+        }
+
+        // Handle seat selection (edit mode)
+        function handleSeatSelection(seatId, e) {
+            if (e.ctrlKey || e.metaKey) {
+                // Multi-select
+                if (selectedSeats.has(seatId)) {
+                    selectedSeats.delete(seatId);
+                } else {
+                    selectedSeats.add(seatId);
+                }
+            } else {
+                // Single select
+                selectedSeats.clear();
+                selectedSeats.add(seatId);
+            }
+            renderSeats();
+            updateStatus(`Selected ${selectedSeats.size} seat(s)`);
+        }
+
+        // Toggle edit mode
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            selectedSeats.clear();
+            renderSeats();
+            updateStatus(`Edit mode ${isEditMode ? 'ON' : 'OFF'}`);
+            updateButtonStates();
+        }
+
+        // Save positions
+        function savePositions() {
+            const data = {
+                seats: seats.map(seat => ({
+                    ...seat,
+                    x: currentPositions[seat.id].x,
+                    y: currentPositions[seat.id].y
+                }))
+            };
+            
+            const dataString = JSON.stringify(data, null, 2);
+            const blob = new Blob([dataString], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'updated-seat-positions.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            updateStatus('Positions saved! Check downloads folder for updated-seat-positions.json');
+        }
+
+        // Reset positions
+        function resetPositions() {
+            seats.forEach(seat => {
+                currentPositions[seat.id] = { ...originalPositions[seat.id] };
+            });
+            selectedSeats.clear();
+            renderSeats();
+            updateStatus('Positions reset to original');
+        }
+
+        // Select all seats
+        function selectAll() {
+            if (!isEditMode) {
+                updateStatus('Please enable edit mode first');
+                return;
+            }
+            selectedSeats.clear();
+            seats.forEach(seat => selectedSeats.add(seat.id));
+            renderSeats();
+            updateStatus('All seats selected');
+        }
+
+        // Deselect all seats
+        function deselectAll() {
+            selectedSeats.clear();
+            renderSeats();
+            updateStatus('All seats deselected');
+        }
+
+        // Invert selection
+        function invertSelection() {
+            const allSeatIds = seats.map(seat => seat.id);
+            const newSelection = new Set();
+            
+            allSeatIds.forEach(seatId => {
+                if (!selectedSeats.has(seatId)) {
+                    newSelection.add(seatId);
+                }
+            });
+            
+            selectedSeats = newSelection;
+            renderSeats();
+            updateStatus(`Selection inverted: ${selectedSeats.size} seats selected`);
+        }
+
+        // Rotation functions
+        function rotateLeft() {
+            if (selectedSeats.size === 0) return;
+            
+            selectedSeats.forEach(seatId => {
+                const seat = seats.find(s => s.id === seatId);
+                if (seat) {
+                    seat.rotation = (seat.rotation || 0) - 15;
+                }
+            });
+            renderSeats();
+            updateStatus(`Rotated ${selectedSeats.size} seat(s) left by 15°`);
+        }
+
+        function rotateRight() {
+            if (selectedSeats.size === 0) return;
+            
+            selectedSeats.forEach(seatId => {
+                const seat = seats.find(s => s.id === seatId);
+                if (seat) {
+                    seat.rotation = (seat.rotation || 0) + 15;
+                }
+            });
+            renderSeats();
+            updateStatus(`Rotated ${selectedSeats.size} seat(s) right by 15°`);
+        }
+
+        // Movement functions
+        function moveSeats(direction) {
+            if (selectedSeats.size === 0) return;
+            
+            const moveAmount = 5;
+            let deltaX = 0;
+            let deltaY = 0;
+            
+            switch (direction) {
+                case 'up':
+                    deltaY = -moveAmount;
+                    break;
+                case 'down':
+                    deltaY = moveAmount;
+                    break;
+                case 'left':
+                    deltaX = -moveAmount;
+                    break;
+                case 'right':
+                    deltaX = moveAmount;
+                    break;
+            }
+            
+            selectedSeats.forEach(seatId => {
+                const seat = seats.find(s => s.id === seatId);
+                if (seat) {
+                    seat.x += deltaX;
+                    seat.y += deltaY;
+                }
+            });
+            renderSeats();
+            updateStatus(`Moved ${selectedSeats.size} seat(s) ${direction}`);
+        }
+
+        // Update button states
+        function updateButtonStates() {
+            const hasSelection = selectedSeats.size > 0;
+            const isEditModeActive = isEditMode;
+            
+            // Rotation buttons
+            document.getElementById('rotateLeftBtn').disabled = !hasSelection || !isEditModeActive;
+            document.getElementById('rotateRightBtn').disabled = !hasSelection || !isEditModeActive;
+            
+            // Movement buttons
+            document.getElementById('moveUpBtn').disabled = !hasSelection || !isEditModeActive;
+            document.getElementById('moveDownBtn').disabled = !hasSelection || !isEditModeActive;
+            document.getElementById('moveLeftBtn').disabled = !hasSelection || !isEditModeActive;
+            document.getElementById('moveRightBtn').disabled = !hasSelection || !isEditModeActive;
+        }
+
+        // Update status
+        function updateStatus(message) {
+            const statusElement = document.getElementById('status');
+            if (message) {
+                statusElement.textContent = message;
+            }
+            
+            document.getElementById('editModeStatus').textContent = isEditMode ? 'ON' : 'OFF';
+            document.getElementById('selectedCount').textContent = selectedSeats.size;
+            
+            // Update button states when status changes
+            updateButtonStates();
+        }
+
+        // Track mouse coordinates
+        document.addEventListener('mousemove', (e) => {
+            const floorPlan = document.getElementById('floorPlan');
+            const rect = floorPlan.getBoundingClientRect();
+            const x = Math.round(e.clientX - rect.left);
+            const y = Math.round(e.clientY - rect.top);
+            document.getElementById('coordinates').innerHTML = 
+                `Mouse: (${x}, ${y})<br>Edit Mode: <span id="editModeStatus">${isEditMode ? 'ON' : 'OFF'}</span><br>Selected: <span id="selectedCount">${selectedSeats.size}</span>`;
+        });
+
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html> 

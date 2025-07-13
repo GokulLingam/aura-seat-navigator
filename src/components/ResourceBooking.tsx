@@ -28,6 +28,10 @@ const ResourceBooking = () => {
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<string>('all');
 
+  // Recurring booking state
+  const [recurrenceType, setRecurrenceType] = useState<'none' | 'daily' | 'weekly' | 'custom'>('none');
+  const [customDates, setCustomDates] = useState<string[]>([]);
+
   const resources: Resource[] = [
     {
       id: 'MR1',
@@ -153,6 +157,41 @@ const ResourceBooking = () => {
   const selectedResourceData = resources.find(r => r.id === selectedResource);
   const availableSlots = selectedResourceData?.availability.find(a => a.date === selectedDate)?.slots || [];
 
+  // Helper function to get availability for a specific resource
+  const getResourceAvailability = (resourceId: string) => {
+    const resource = resources.find(r => r.id === resourceId);
+    return resource?.availability.find(a => a.date === selectedDate)?.slots || [];
+  };
+
+  // Generate time slots for the selected date if not available
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 9; hour <= 17; hour++) {
+      const startTime = `${hour.toString().padStart(2, '0')}:00`;
+      const endTime = `${(hour + 1).toString().padStart(2, '0')}:00`;
+      slots.push({
+        time: `${startTime}-${endTime}`,
+        available: Math.random() > 0.3 // Random availability for demo
+      });
+    }
+    return slots;
+  };
+
+  // Get or generate slots for the selected resource
+  const getAvailableSlots = () => {
+    if (selectedResourceData) {
+      const existingSlots = selectedResourceData.availability.find(a => a.date === selectedDate)?.slots;
+      if (existingSlots && existingSlots.length > 0) {
+        return existingSlots;
+      }
+      // Generate slots if none exist for this date
+      return generateTimeSlots();
+    }
+    return [];
+  };
+
+  const currentAvailableSlots = getAvailableSlots();
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -239,7 +278,7 @@ const ResourceBooking = () => {
                   <div className="text-sm">
                     <span className="text-muted-foreground">Available slots today: </span>
                     <span className="font-medium">
-                      {availableSlots.filter(slot => slot.available).length} of {availableSlots.length}
+                      {getResourceAvailability(resource.id).filter(slot => slot.available).length} of {getResourceAvailability(resource.id).length}
                     </span>
                   </div>
                 </div>
@@ -258,26 +297,122 @@ const ResourceBooking = () => {
               <CardContent className="space-y-4">
                 <div>
                   <Label>Available Time Slots</Label>
-                  <div className="grid grid-cols-1 gap-2 mt-2">
-                    {availableSlots.map((slot, idx) => (
-                      <Button
-                        key={idx}
-                        variant={selectedSlot === slot.time ? 'default' : 'outline'}
-                        size="sm"
-                        disabled={!slot.available}
-                        onClick={() => setSelectedSlot(slot.time)}
-                        className="justify-start"
-                      >
-                        <Clock className="w-4 h-4 mr-2" />
-                        {slot.time}
-                        {!slot.available && (
-                          <Badge variant="destructive" className="ml-auto text-xs">
-                            Booked
-                          </Badge>
-                        )}
-                      </Button>
-                    ))}
+                  <div className="space-y-3 mt-2">
+                    {/* Morning Slots */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Morning (9:00 AM - 12:00 PM)</h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {currentAvailableSlots
+                          .filter(slot => {
+                            const startHour = parseInt(slot.time.split('-')[0].split(':')[0]);
+                            return startHour >= 9 && startHour < 12;
+                          })
+                          .map((slot, idx) => (
+                            <Button
+                              key={`morning-${idx}`}
+                              variant={selectedSlot === slot.time ? 'default' : 'outline'}
+                              size="sm"
+                              disabled={!slot.available}
+                              onClick={() => setSelectedSlot(slot.time)}
+                              className="justify-start"
+                            >
+                              <Clock className="w-4 h-4 mr-2" />
+                              {slot.time}
+                              {slot.available ? (
+                                <Badge variant="secondary" className="ml-auto text-xs">
+                                  Available
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="ml-auto text-xs">
+                                  Booked
+                                </Badge>
+                              )}
+                            </Button>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Afternoon Slots */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-2">Afternoon (12:00 PM - 5:00 PM)</h4>
+                      <div className="grid grid-cols-1 gap-2">
+                        {currentAvailableSlots
+                          .filter(slot => {
+                            const startHour = parseInt(slot.time.split('-')[0].split(':')[0]);
+                            return startHour >= 12 && startHour < 17;
+                          })
+                          .map((slot, idx) => (
+                            <Button
+                              key={`afternoon-${idx}`}
+                              variant={selectedSlot === slot.time ? 'default' : 'outline'}
+                              size="sm"
+                              disabled={!slot.available}
+                              onClick={() => setSelectedSlot(slot.time)}
+                              className="justify-start"
+                            >
+                              <Clock className="w-4 h-4 mr-2" />
+                              {slot.time}
+                              {slot.available ? (
+                                <Badge variant="secondary" className="ml-auto text-xs">
+                                  Available
+                                </Badge>
+                              ) : (
+                                <Badge variant="destructive" className="ml-auto text-xs">
+                                  Booked
+                                </Badge>
+                              )}
+                            </Button>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* Evening Slots (if any) */}
+                    {currentAvailableSlots.some(slot => {
+                      const startHour = parseInt(slot.time.split('-')[0].split(':')[0]);
+                      return startHour >= 17;
+                    }) && (
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-2">Evening (5:00 PM+)</h4>
+                        <div className="grid grid-cols-1 gap-2">
+                          {currentAvailableSlots
+                            .filter(slot => {
+                              const startHour = parseInt(slot.time.split('-')[0].split(':')[0]);
+                              return startHour >= 17;
+                            })
+                            .map((slot, idx) => (
+                              <Button
+                                key={`evening-${idx}`}
+                                variant={selectedSlot === slot.time ? 'default' : 'outline'}
+                                size="sm"
+                                disabled={!slot.available}
+                                onClick={() => setSelectedSlot(slot.time)}
+                                className="justify-start"
+                              >
+                                <Clock className="w-4 h-4 mr-2" />
+                                {slot.time}
+                                {slot.available ? (
+                                  <Badge variant="secondary" className="ml-auto text-xs">
+                                    Available
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="destructive" className="ml-auto text-xs">
+                                    Booked
+                                  </Badge>
+                                )}
+                              </Button>
+                            ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
+                </div>
+
+                {/* Summary */}
+                <div className="text-sm text-muted-foreground border-t pt-3">
+                  <p>
+                    <strong>{currentAvailableSlots.filter(slot => slot.available).length}</strong> of{' '}
+                    <strong>{currentAvailableSlots.length}</strong> slots available
+                  </p>
                 </div>
 
                 {selectedSlot && (
@@ -290,7 +425,79 @@ const ResourceBooking = () => {
                         <p><strong>Cost:</strong> ${selectedResourceData.price}</p>
                       )}
                     </div>
-                    <Button variant="golden" className="w-full">
+                    
+                    {/* Recurrence Section */}
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">Recurrence</Label>
+                      <div className="flex gap-2 flex-wrap">
+                        <Button 
+                          size="sm" 
+                          variant={recurrenceType === 'none' ? 'default' : 'outline'} 
+                          onClick={() => setRecurrenceType('none')}
+                        >
+                          None
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant={recurrenceType === 'daily' ? 'default' : 'outline'} 
+                          onClick={() => setRecurrenceType('daily')}
+                        >
+                          Daily
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant={recurrenceType === 'weekly' ? 'default' : 'outline'} 
+                          onClick={() => setRecurrenceType('weekly')}
+                        >
+                          Weekly
+                        </Button>
+                        <Button 
+                          size="sm" 
+                          variant={recurrenceType === 'custom' ? 'default' : 'outline'} 
+                          onClick={() => setRecurrenceType('custom')}
+                        >
+                          Custom Dates
+                        </Button>
+                      </div>
+                      {recurrenceType === 'custom' && (
+                        <div className="space-y-2">
+                          <div className="flex gap-2">
+                            <input
+                              type="date"
+                              onChange={e => {
+                                const date = e.target.value;
+                                if (date && !customDates.includes(date)) setCustomDates([...customDates, date]);
+                              }}
+                              className="border px-2 py-1 rounded text-xs flex-1"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {customDates.map(date => (
+                              <span key={date} className="bg-amber-100 text-amber-800 px-2 py-0.5 rounded text-xs flex items-center gap-1">
+                                {date}
+                                <button 
+                                  onClick={() => setCustomDates(customDates.filter(d => d !== date))} 
+                                  className="ml-1 text-amber-700 hover:text-amber-900"
+                                >
+                                  &times;
+                                </button>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    
+                    <Button 
+                      variant="golden" 
+                      className="w-full"
+                      onClick={() => {
+                        alert(`Resource ${selectedResourceData?.name} booked!\nDate: ${selectedDate}\nTime: ${selectedSlot}\nRecurrence: ${recurrenceType}${recurrenceType === 'custom' ? '\nCustom Dates: ' + customDates.join(', ') : ''}`);
+                        setSelectedSlot(null);
+                        setRecurrenceType('none');
+                        setCustomDates([]);
+                      }}
+                    >
                       Confirm Booking
                     </Button>
                   </div>
