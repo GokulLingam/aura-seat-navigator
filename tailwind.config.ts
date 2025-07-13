@@ -52,6 +52,15 @@ export default {
 					DEFAULT: 'hsl(var(--card))',
 					foreground: 'hsl(var(--card-foreground))'
 				},
+				// UPS Brand Colors
+				ups: {
+					brown: '#351C15',
+					gold: '#FFB81C',
+					red: '#D6001C',
+					'light-brown': '#5D3A2A',
+					'light-gold': '#FFD54F',
+					'light-red': '#FF1744'
+				},
 				// Custom booking system colors
 				seat: {
 					available: 'hsl(var(--seat-available))',

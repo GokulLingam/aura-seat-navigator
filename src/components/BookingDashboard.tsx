@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, Clock, MapPin, Users, Monitor, Coffee, Phone, Settings, UserPlus, Shield } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Booking {
   id: string;
@@ -176,9 +176,11 @@ const BookingDashboard = () => {
                     <Badge className={getStatusColor(booking.status)}>
                       {booking.status}
                     </Badge>
+                    {user?.role === 'admin' && (
                     <Button variant="outline" size="sm">
                       Modify
                     </Button>
+                    )}
                     <Button variant="destructive" size="sm">
                       Cancel
                     </Button>

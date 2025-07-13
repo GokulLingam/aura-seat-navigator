@@ -11,19 +11,27 @@ import {
   Bell,
   Menu,
   X,
-  LogOut
+  LogOut,
+  Sun,
+  Moon
 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/hooks/useAuth';
+import { useTheme } from '@/contexts/ThemeContext';
 
 const Navigation = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const location = useLocation();
   const { user, logout } = useAuth();
+  const { isDarkMode, toggleDarkMode } = useTheme();
 
   const navigationItems = [
     { path: '/', label: 'Dashboard', icon: Building2 },
     { path: '/floor-plan', label: 'Book Seats', icon: MapPin },
     { path: '/resources', label: 'Book Resource', icon: Calendar },
+  ];
+
+  const adminNavigationItems = [
+    { path: '/floor-plan', label: 'Floor Plan Management', icon: MapPin, adminOnly: true },
   ];
 
   const isActivePath = (path: string) => {
@@ -40,10 +48,10 @@ const Navigation = () => {
         <div className="flex items-center space-x-8">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-golden rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-accent-foreground" />
+            <div className="w-8 h-8 bg-[#351C15] rounded-lg flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-[#FFB81C]" />
             </div>
-            <span className="text-xl font-bold">UPS Reserve</span>
+            <span className="text-xl font-bold text-[#FFB81C] dark:text-[#FFB81C]">UPS Reserve</span>
           </Link>
 
           {/* Navigation Links */}
@@ -51,16 +59,22 @@ const Navigation = () => {
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActivePath(item.path);
+              const isAdminItem = item.path === '/floor-plan' && user?.role === 'admin';
               
               return (
                 <Link key={item.path} to={item.path}>
                   <Button
                     variant={isActive ? 'default' : 'ghost'}
                     size="sm"
-                    className="flex items-center space-x-2"
+                    className="flex items-center space-x-2 relative"
                   >
                     <Icon className="w-4 h-4" />
                     <span>{item.label}</span>
+                    {isAdminItem && (
+                      <Badge variant="secondary" className="absolute -top-1 -right-1 w-4 h-4 p-0 text-xs bg-purple-100 text-purple-800">
+                        👑
+                      </Badge>
+                    )}
                   </Button>
                 </Link>
               );
@@ -78,19 +92,25 @@ const Navigation = () => {
             </Badge>
           </Button>
 
-          {/* Settings */}
-          <Button variant="ghost" size="sm">
-            <Settings className="w-4 h-4" />
+          {/* Dark Mode Toggle */}
+          <Button variant="ghost" size="sm" onClick={toggleDarkMode}>
+            {isDarkMode ? (
+              <Sun className="w-4 h-4" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
           </Button>
 
           {/* User Profile */}
+          <Link to="/profile">
           <Button variant="outline" size="sm" className="flex items-center space-x-2">
             <User className="w-4 h-4" />
-            <span>{user?.name || 'User'}</span>
-            {user?.role === 'admin' && (
-              <Badge variant="secondary" className="text-xs">Admin</Badge>
-            )}
-          </Button>
+              <span>{user?.name || 'User'}</span>
+              {user?.role === 'admin' && (
+                <Badge variant="secondary" className="text-xs">Admin</Badge>
+              )}
+            </Button>
+          </Link>
 
           {/* Logout */}
           <Button variant="ghost" size="sm" onClick={logout}>
@@ -104,10 +124,10 @@ const Navigation = () => {
         <div className="flex items-center justify-between px-4 py-3">
           {/* Logo */}
           <Link to="/" className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-golden rounded-lg flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-accent-foreground" />
+            <div className="w-8 h-8 bg-[#351C15] rounded-lg flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-[#FFB81C]" />
             </div>
-            <span className="text-lg font-bold">UPS Reserve</span>
+            <span className="text-lg font-bold text-[#FFB81C] dark:text-[#FFB81C]">UPS Reserve</span>
           </Link>
 
           {/* Mobile Menu Button */}
@@ -127,6 +147,7 @@ const Navigation = () => {
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isActivePath(item.path);
+                const isAdminItem = item.path === '/floor-plan' && user?.role === 'admin';
                 
                 return (
                   <Link 
@@ -137,10 +158,15 @@ const Navigation = () => {
                     <Button
                       variant={isActive ? 'default' : 'ghost'}
                       size="sm"
-                      className="w-full justify-start space-x-2"
+                      className="w-full justify-start space-x-2 relative"
                     >
                       <Icon className="w-4 h-4" />
                       <span>{item.label}</span>
+                      {isAdminItem && (
+                        <Badge variant="secondary" className="ml-auto text-xs bg-purple-100 text-purple-800">
+                          👑 Admin
+                        </Badge>
+                      )}
                     </Button>
                   </Link>
                 );
@@ -152,17 +178,24 @@ const Navigation = () => {
                   <span>Notifications</span>
                   <Badge className="ml-auto bg-accent text-accent-foreground">3</Badge>
                 </Button>
-                <Button variant="ghost" size="sm" className="w-full justify-start space-x-2">
-                  <Settings className="w-4 h-4" />
-                  <span>Settings</span>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="w-full justify-start space-x-2"
+                  onClick={toggleDarkMode}
+                >
+                  {isDarkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+                  <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
                 </Button>
+                <Link to="/profile" onClick={() => setIsMobileMenuOpen(false)}>
                 <Button variant="ghost" size="sm" className="w-full justify-start space-x-2">
                   <User className="w-4 h-4" />
-                  <span>{user?.name || 'Profile'}</span>
-                  {user?.role === 'admin' && (
-                    <Badge variant="secondary" className="text-xs ml-auto">Admin</Badge>
-                  )}
-                </Button>
+                    <span>{user?.name || 'Profile'}</span>
+                    {user?.role === 'admin' && (
+                      <Badge variant="secondary" className="text-xs ml-auto">Admin</Badge>
+                    )}
+                  </Button>
+                </Link>
                 <Button variant="ghost" size="sm" className="w-full justify-start space-x-2" onClick={logout}>
                   <LogOut className="w-4 h-4" />
                   <span>Logout</span>

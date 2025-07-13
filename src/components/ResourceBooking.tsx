@@ -489,7 +489,7 @@ const ResourceBooking = () => {
                     </div>
                     
                     <Button 
-                      variant="golden" 
+                      variant="default" 
                       className="w-full"
                       onClick={() => {
                         alert(`Resource ${selectedResourceData?.name} booked!\nDate: ${selectedDate}\nTime: ${selectedSlot}\nRecurrence: ${recurrenceType}${recurrenceType === 'custom' ? '\nCustom Dates: ' + customDates.join(', ') : ''}`);

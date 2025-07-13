@@ -1,21 +1,16 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+import apiService, { type User } from '@/services/apiService';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  login: (userData: User) => void;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
   loading: boolean;
+  isLoading: boolean;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
@@ -34,33 +29,46 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in
-    const isAuthenticated = localStorage.getItem('isAuthenticated');
-    const userData = localStorage.getItem('user');
-    
-    if (isAuthenticated === 'true' && userData) {
+    // Check if user is already logged in and verify token
+    const checkAuth = async () => {
       try {
-        setUser(JSON.parse(userData));
+        if (apiService.isAuthenticated()) {
+          const userData = await apiService.verifyToken();
+          setUser(userData);
+        }
       } catch (error) {
-        console.error('Error parsing user data:', error);
+        console.error('Token verification failed:', error);
+        // Clear invalid tokens
+        localStorage.removeItem('token');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
         localStorage.removeItem('isAuthenticated');
+      } finally {
+        setLoading(false);
       }
-    }
-    
-    setLoading(false);
+    };
+
+    checkAuth();
   }, []);
 
-  const login = (userData: User) => {
-    setUser(userData);
-    localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('isAuthenticated', 'true');
+  const login = async (email: string, password: string) => {
+    try {
+      const response = await apiService.login({ email, password });
+      setUser(response.user);
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('isAuthenticated');
+  const logout = async () => {
+    try {
+      await apiService.logout();
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      setUser(null);
+    }
   };
 
   const value = {
@@ -68,7 +76,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isAuthenticated: !!user,
     login,
     logout,
-    loading
+    loading,
+    isLoading: loading
   };
 
   return (

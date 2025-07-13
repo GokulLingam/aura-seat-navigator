@@ -36,6 +36,11 @@ All colors MUST be HSL.
     --input: 38 20% 88%;
     --ring: 45 85% 65%;
 
+    /* UPS Brand Colors */
+    --ups-brown: 25 15% 25%;
+    --ups-gold: 45 85% 65%;
+    --ups-red: 0 84% 60%;
+
     /* Custom semantic tokens for office booking */
     --seat-available: 120 50% 85%;
     --seat-occupied: 0 50% 85%;

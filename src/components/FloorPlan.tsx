@@ -7,14 +7,20 @@ import { Users, Monitor, Wifi, Coffee, ZoomIn, ZoomOut, RotateCcw, RotateCw, Mov
 import { seats, resources, deskAreas, officeLayout, floorSymbols as initialFloorSymbols, type Seat, type Resource, type DeskArea, type FloorSymbol } from '@/data/floorPlanData';
 import { CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '@/hooks/useAuth';
 
 // Equipment filter options
 const EQUIPMENT_OPTIONS = ["Monitor", "Dock", "Window Seat"];
 
 const FloorPlan = () => {
   const isMobile = useIsMobile();
+  const { user } = useAuth();
+  
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedFloor, setSelectedFloor] = useState('floor-1');
+  const [selectedOfficeLocation, setSelectedOfficeLocation] = useState('main-office');
+  const [selectedBuilding, setSelectedBuilding] = useState('building-a');
   const [zoom, setZoom] = useState(isMobile ? 1 : 2); // Default zoom for mobile
   const [showZoomControls, setShowZoomControls] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(isMobile ? 100 : 200); // Percentage display
@@ -193,10 +199,10 @@ const FloorPlan = () => {
       // Single tap detection (less than 200ms and small movement)
       if (deltaTime < 200 && Math.abs(deltaX) < 10 && Math.abs(deltaY) < 10) {
         // Handle tap for seat selection
-        const svgElement = e.currentTarget.querySelector('svg') as SVGElement;
-        if (svgElement) {
+        const svgElement = e.currentTarget.querySelector('svg') as SVGSVGElement;
+        if (svgElement && svgElement.viewBox && svgElement.viewBox.baseVal) {
           const svgRect = svgElement.getBoundingClientRect();
-          const viewBox = (svgElement as SVGSVGElement).viewBox.baseVal;
+          const viewBox = svgElement.viewBox.baseVal;
           const scaleX = viewBox.width / svgRect.width;
           const scaleY = viewBox.height / svgRect.height;
           const x = (touch.clientX - svgRect.left) * scaleX;
@@ -321,11 +327,11 @@ const FloorPlan = () => {
       if (!draggedItem || !isDraggingItem) return;
       
       // Get the SVG element from the floor plan container
-      const svgElement = document.querySelector('.floor-plan-container svg') as SVGElement;
-      if (!svgElement) return;
+      const svgElement = document.querySelector('.floor-plan-container svg') as SVGSVGElement;
+      if (!svgElement || !svgElement.viewBox || !svgElement.viewBox.baseVal) return;
       
       const svgRect = svgElement.getBoundingClientRect();
-      const viewBox = (svgElement as any).viewBox.baseVal;
+      const viewBox = svgElement.viewBox.baseVal;
       
       // Calculate the scale factor between screen pixels and SVG units
       const scaleX = viewBox.width / svgRect.width;
@@ -1053,11 +1059,11 @@ All positions, dimensions, and customizations have been captured!`;
     if (!isPlacingItem && !isCreatingDeskArea) return;
     
     // Get the SVG element to calculate proper coordinates
-    const svgElement = e.currentTarget.querySelector('svg');
-    if (!svgElement) return;
+    const svgElement = e.currentTarget.querySelector('svg') as SVGSVGElement;
+    if (!svgElement || !svgElement.viewBox || !svgElement.viewBox.baseVal) return;
     
     const svgRect = svgElement.getBoundingClientRect();
-    const viewBox = (svgElement as any).viewBox.baseVal;
+    const viewBox = svgElement.viewBox.baseVal;
     
     // Calculate the scale factor between screen pixels and SVG units
     const scaleX = viewBox.width / svgRect.width;
@@ -1110,11 +1116,11 @@ All positions, dimensions, and customizations have been captured!`;
     if (!isCreatingDeskArea || (!deskAreaStart.x && !deskAreaStart.y)) return;
     
     // Get the SVG element to calculate proper coordinates
-    const svgElement = e.currentTarget.querySelector('svg');
-    if (!svgElement) return;
+    const svgElement = e.currentTarget.querySelector('svg') as SVGSVGElement;
+    if (!svgElement || !svgElement.viewBox || !svgElement.viewBox.baseVal) return;
     
     const svgRect = svgElement.getBoundingClientRect();
-    const viewBox = (svgElement as any).viewBox.baseVal;
+    const viewBox = svgElement.viewBox.baseVal;
     
     // Calculate the scale factor between screen pixels and SVG units
     const scaleX = viewBox.width / svgRect.width;
@@ -1213,6 +1219,7 @@ All positions, dimensions, and customizations have been captured!`;
   // Recurring booking state
   const [recurrenceType, setRecurrenceType] = useState<'none' | 'daily' | 'weekly' | 'custom'>('none');
   const [customDates, setCustomDates] = useState<string[]>([]);
+  const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
   // Seat details card state
   const [selectedSeatDetails, setSelectedSeatDetails] = useState<Seat | null>(null);
@@ -1232,6 +1239,7 @@ All positions, dimensions, and customizations have been captured!`;
     setBookingSeat(null);
     setRecurrenceType('none');
     setCustomDates([]);
+    setRecurrenceEndDate('');
   };
 
   // Handler to show seat details
@@ -1257,7 +1265,14 @@ All positions, dimensions, and customizations have been captured!`;
       <div className="flex flex-col gap-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
           <div>
-            <h2 className="text-lg md:text-2xl font-bold">Office Floor Plan</h2>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="text-lg md:text-2xl font-bold">Office Floor Plan</h2>
+              {user?.role === 'admin' && (
+                <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">
+                  👑 Admin
+                </Badge>
+              )}
+            </div>
             <p className="text-xs md:text-base text-muted-foreground">
               {isEditMode 
                 ? 'Edit Mode: Create seats, desk areas, and symbols instantly in the middle of layout. Click to select, drag to move, use rotation buttons to rotate. Drag to pan, scroll to navigate.' 
@@ -1265,6 +1280,31 @@ All positions, dimensions, and customizations have been captured!`;
               }
             </p>
           </div>
+          
+
+          
+          {/* Admin Edit Mode Checkbox - Always Visible */}
+          {user?.role === 'admin' && (
+            <div className="flex items-center space-x-2 p-3 bg-purple-50 border-2 border-purple-300 rounded-lg shadow-sm">
+              <Checkbox
+                id="edit-mode-admin"
+                checked={isEditMode}
+                onCheckedChange={(checked) => {
+                  setIsEditMode(checked as boolean);
+                  setEditingSeat(null);
+                  setSelectedSeat(null);
+                }}
+              />
+              <label htmlFor="edit-mode-admin" className="text-sm font-medium text-purple-800 cursor-pointer">
+                ✏️ Edit Floor Plan Mode
+              </label>
+              {isEditMode && (
+                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
+                  ACTIVE
+                </Badge>
+              )}
+            </div>
+          )}
           
           {/* Mobile Controls Toggle */}
           {isMobile && (
@@ -1287,20 +1327,27 @@ All positions, dimensions, and customizations have been captured!`;
           <Card className="p-4 border-accent bg-accent/5">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="edit-mode-mobile"
-                    checked={isEditMode}
-                    onCheckedChange={(checked) => {
-                      setIsEditMode(checked as boolean);
-                      setEditingSeat(null);
-                      setSelectedSeat(null);
-                    }}
-                  />
-                  <label htmlFor="edit-mode-mobile" className="text-sm font-medium">
-                    Edit Mode
-                  </label>
-                </div>
+                {user?.role === 'admin' && (
+                  <div className="flex items-center space-x-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+                    <Checkbox
+                      id="edit-mode-mobile"
+                      checked={isEditMode}
+                      onCheckedChange={(checked) => {
+                        setIsEditMode(checked as boolean);
+                        setEditingSeat(null);
+                        setSelectedSeat(null);
+                      }}
+                    />
+                    <label htmlFor="edit-mode-mobile" className="text-sm font-medium text-purple-800">
+                      ✏️ Edit Mode
+                    </label>
+                    {isEditMode && (
+                      <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
+                        Active
+                      </Badge>
+                    )}
+                  </div>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -1310,32 +1357,20 @@ All positions, dimensions, and customizations have been captured!`;
                 </Button>
               </div>
               
-              {!isEditMode && (
-                <div className="flex flex-col gap-2">
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className="px-3 py-2 border border-input rounded-md bg-background text-sm"
-                  />
-                  <Button variant="golden" className="text-sm">
-                    Book Selected
-                  </Button>
-                </div>
-              )}
+
               
               {/* Mobile Zoom Controls */}
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium">Zoom: {zoomLevel}%</span>
-                <div className="flex items-center gap-1">
+                <div className="flex flex-col items-center gap-1">
                   <Button 
                     size="sm" 
                     variant="outline" 
-                    onClick={handleZoomOut}
-                    disabled={zoomLevel <= 10}
+                    onClick={handleZoomIn}
+                    disabled={zoomLevel >= 500}
                     className="w-8 h-8 p-0"
                   >
-                    <ZoomOut className="w-3 h-3" />
+                    <ZoomIn className="w-3 h-3" />
                   </Button>
                   <Button 
                     size="sm" 
@@ -1348,11 +1383,11 @@ All positions, dimensions, and customizations have been captured!`;
                   <Button 
                     size="sm" 
                     variant="outline" 
-                    onClick={handleZoomIn}
-                    disabled={zoomLevel >= 500}
+                    onClick={handleZoomOut}
+                    disabled={zoomLevel <= 10}
                     className="w-8 h-8 p-0"
                   >
-                    <ZoomIn className="w-3 h-3" />
+                    <ZoomOut className="w-3 h-3" />
                   </Button>
                 </div>
               </div>
@@ -1363,33 +1398,28 @@ All positions, dimensions, and customizations have been captured!`;
         {/* Desktop Controls */}
         {!isMobile && (
           <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="edit-mode"
-                checked={isEditMode}
-                onCheckedChange={(checked) => {
-                  setIsEditMode(checked as boolean);
-                  setEditingSeat(null);
-                  setSelectedSeat(null);
-                }}
-              />
-              <label htmlFor="edit-mode" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Edit Mode
-              </label>
-            </div>
-            {!isEditMode && (
-              <>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="px-3 py-2 border border-input rounded-md bg-background text-sm"
+            {user?.role === 'ADMIN' && (
+              <div className="flex items-center space-x-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
+                <Checkbox
+                  id="edit-mode"
+                  checked={isEditMode}
+                  onCheckedChange={(checked) => {
+                    setIsEditMode(checked as boolean);
+                    setEditingSeat(null);
+                    setSelectedSeat(null);
+                  }}
                 />
-                <Button variant="golden" className="text-sm">
-                  Book Selected
-                </Button>
-              </>
+                <label htmlFor="edit-mode" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 text-purple-800">
+                  ✏️ Edit Mode
+                </label>
+                {isEditMode && (
+                  <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
+                    Active
+                  </Badge>
+                )}
+              </div>
             )}
+
           </div>
         )}
       </div>
@@ -1401,7 +1431,8 @@ All positions, dimensions, and customizations have been captured!`;
             <label className="text-sm font-medium">Floor:</label>
             <select 
               className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[120px]"
-              defaultValue="floor-1"
+              value={selectedFloor}
+              onChange={(e) => setSelectedFloor(e.target.value)}
             >
               <option value="floor-1">Floor 1</option>
               <option value="floor-2">Floor 2</option>
@@ -1414,7 +1445,8 @@ All positions, dimensions, and customizations have been captured!`;
             <label className="text-sm font-medium">Office Location:</label>
             <select 
               className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[150px]"
-              defaultValue="main-office"
+              value={selectedOfficeLocation}
+              onChange={(e) => setSelectedOfficeLocation(e.target.value)}
             >
               <option value="main-office">Main Office</option>
               <option value="branch-north">North Branch</option>
@@ -1427,12 +1459,22 @@ All positions, dimensions, and customizations have been captured!`;
             <label className="text-sm font-medium">Building:</label>
             <select 
               className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[120px]"
-              defaultValue="building-a"
+              value={selectedBuilding}
+              onChange={(e) => setSelectedBuilding(e.target.value)}
             >
               <option value="building-a">Building A</option>
               <option value="building-b">Building B</option>
               <option value="building-c">Building C</option>
             </select>
+          </div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium">Date:</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[140px]"
+            />
           </div>
         </div>
       </Card>
@@ -1497,7 +1539,7 @@ All positions, dimensions, and customizations have been captured!`;
 
       {/* Seat Details Card - Show when seat is selected in non-edit mode */}
       {showSeatDetails && selectedSeatDetails && !isEditMode && (
-        <Card className="border-2 border-[#FFD700] bg-gradient-to-r from-amber-50 to-yellow-50 max-w-2xl mx-auto">
+        <Card className="border-2 border-[#FFB81C] bg-white dark:bg-[#1a1a1a] max-w-2xl mx-auto">
           <CardContent className="p-4 md:p-6">
             <div className="flex flex-col md:flex-row items-start justify-between gap-4">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-4 w-full">
@@ -1564,7 +1606,7 @@ All positions, dimensions, and customizations have been captured!`;
                 </Button>
                 {selectedSeatDetails.status === 'available' && (
                   <Button 
-                    variant="golden" 
+                    variant="default" 
                     size="sm"
                     onClick={() => handleBookSeat(selectedSeatDetails)}
                     className="bg-[#FFD700] text-amber-900 hover:bg-amber-400 shadow-lg flex-1 md:flex-none"
@@ -1768,23 +1810,23 @@ All positions, dimensions, and customizations have been captured!`;
                     </Button>
                   </div>
 
+                  {/* Admin Save Controls */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Save:</span>
+                    <Button 
+                      size="sm" 
+                      variant="default" 
+                      onClick={saveFloorPlan}
+                      className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                    >
+                      💾 Save Changes
+                    </Button>
+                  </div>
+
                   {/* Zoom Controls - Merged into toolbar */}
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">Zoom:</span>
-                    <div className="flex items-center gap-1">
-                      <Button 
-                        size="sm" 
-                        variant="secondary" 
-                        onClick={handleZoomOut}
-                        disabled={zoomLevel <= 10}
-                        className="w-8 h-8 p-0"
-                        title="Zoom Out"
-                      >
-                        <ZoomOut className="w-3 h-3" />
-                      </Button>
-                      <div className="text-sm font-medium min-w-[3rem] text-center">
-                        {zoomLevel}%
-                      </div>
+                    <div className="flex flex-col items-center gap-1">
                       <Button 
                         size="sm" 
                         variant="secondary" 
@@ -1794,6 +1836,19 @@ All positions, dimensions, and customizations have been captured!`;
                         title="Zoom In"
                       >
                         <ZoomIn className="w-3 h-3" />
+                      </Button>
+                      <div className="text-sm font-medium min-w-[3rem] text-center">
+                        {zoomLevel}%
+                      </div>
+                      <Button 
+                        size="sm" 
+                        variant="secondary" 
+                        onClick={handleZoomOut}
+                        disabled={zoomLevel <= 10}
+                        className="w-8 h-8 p-0"
+                        title="Zoom Out"
+                      >
+                        <ZoomOut className="w-3 h-3" />
                       </Button>
                       <Button 
                         size="sm" 
@@ -2060,20 +2115,7 @@ All positions, dimensions, and customizations have been captured!`;
             right: 16,
             zIndex: 10
           }}>
-            <div className="bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg flex items-center gap-2">
-              <Button 
-                size="sm" 
-                variant="outline" 
-                onClick={handleZoomOut}
-                disabled={zoomLevel <= 10}
-                className="h-8 w-8 p-0"
-                title="Zoom Out"
-              >
-                <ZoomOut className="w-3 h-3" />
-              </Button>
-              <div className="text-sm font-medium min-w-[3rem] text-center">
-                {zoomLevel}%
-              </div>
+            <div className="bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg flex flex-col items-center gap-2">
               <Button 
                 size="sm" 
                 variant="outline" 
@@ -2083,6 +2125,19 @@ All positions, dimensions, and customizations have been captured!`;
                 title="Zoom In"
               >
                 <ZoomIn className="w-3 h-3" />
+              </Button>
+              <div className="text-sm font-medium min-w-[3rem] text-center">
+                {zoomLevel}%
+              </div>
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={handleZoomOut}
+                disabled={zoomLevel <= 10}
+                className="h-8 w-8 p-0"
+                title="Zoom Out"
+              >
+                <ZoomOut className="w-3 h-3" />
               </Button>
             </div>
           </div>
@@ -2796,7 +2851,7 @@ All positions, dimensions, and customizations have been captured!`;
                 ))}
               </div>
             </div>
-            <Button variant="golden" onClick={() => handleBookSeat(seats.find(s => s.id === selectedSeat) || newSeats[0])}>
+            <Button variant="default" onClick={() => handleBookSeat(seats.find(s => s.id === selectedSeat) || newSeats[0])} className="bg-[#FFD700] text-amber-900 hover:bg-amber-400">
               Book This Seat
             </Button>
           </div>
@@ -2844,7 +2899,11 @@ All positions, dimensions, and customizations have been captured!`;
             <div className="mb-4">
               <div className="mb-2 text-sm text-muted-foreground">Type: <span className="font-medium">{bookingSeat.type}</span></div>
               <div className="mb-2 text-sm text-muted-foreground">Status: <span className="font-medium capitalize">{bookingSeat.status}</span></div>
-              <div className="mb-2 text-sm text-muted-foreground">Location: <span className="font-medium">({bookingSeat.x}, {bookingSeat.y})</span></div>
+              <div className="mb-2 text-sm text-muted-foreground">User: <span className="font-medium">{user?.name || 'Not logged in'}</span></div>
+              <div className="mb-2 text-sm text-muted-foreground">Office Location: <span className="font-medium">{selectedOfficeLocation.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
+              <div className="mb-2 text-sm text-muted-foreground">Building: <span className="font-medium">{selectedBuilding.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
+              <div className="mb-2 text-sm text-muted-foreground">Floor: <span className="font-medium">{selectedFloor.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
+              <div className="mb-2 text-sm text-muted-foreground">Date: <span className="font-medium">{selectedDate}</span></div>
               {bookingSeat.equipment && bookingSeat.equipment.length > 0 && (
                 <div className="mb-2 text-sm text-muted-foreground">Equipment: <span className="font-medium">{bookingSeat.equipment.join(', ')}</span></div>
               )}
@@ -2858,6 +2917,25 @@ All positions, dimensions, and customizations have been captured!`;
                 <Button size="sm" variant={recurrenceType === 'weekly' ? 'default' : 'outline'} onClick={() => setRecurrenceType('weekly')}>Weekly</Button>
                 <Button size="sm" variant={recurrenceType === 'custom' ? 'default' : 'outline'} onClick={() => setRecurrenceType('custom')}>Custom Dates</Button>
               </div>
+              
+              {/* End Date for Recurring Bookings */}
+              {(recurrenceType === 'daily' || recurrenceType === 'weekly') && (
+                <div className="mt-2">
+                  <label className="block text-xs mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={recurrenceEndDate}
+                    onChange={e => setRecurrenceEndDate(e.target.value)}
+                    min={selectedDate}
+                    className="border px-2 py-1 rounded text-xs w-full"
+                    placeholder="Select end date"
+                  />
+                  {!recurrenceEndDate && (
+                    <p className="text-xs text-red-500 mt-1">Please select an end date for recurring bookings</p>
+                  )}
+                </div>
+              )}
+              
               {recurrenceType === 'custom' && (
                 <div className="mt-2">
                   <label className="block text-xs mb-1">Select Dates</label>
@@ -2880,10 +2958,28 @@ All positions, dimensions, and customizations have been captured!`;
                 </div>
               )}
             </div>
-            <Button variant="default" className="w-full" onClick={() => {
-              alert(`Seat ${bookingSeat.id} booked!\nRecurrence: ${recurrenceType}${recurrenceType === 'custom' ? '\nDates: ' + customDates.join(', ') : ''}`);
-              handleCloseBookingDialog();
-            }}>
+            <Button 
+              variant="default" 
+              className="w-full" 
+              disabled={(recurrenceType === 'daily' || recurrenceType === 'weekly') && !recurrenceEndDate}
+              onClick={() => {
+                // Validate end date for recurring bookings
+                if ((recurrenceType === 'daily' || recurrenceType === 'weekly') && !recurrenceEndDate) {
+                  alert('Please select an end date for recurring bookings');
+                  return;
+                }
+                
+                const locationInfo = `${selectedOfficeLocation.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} - ${selectedBuilding.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} - ${selectedFloor.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
+                const recurrenceInfo = recurrenceType === 'custom' 
+                  ? `Custom Dates: ${customDates.join(', ')}`
+                  : recurrenceType !== 'none' 
+                    ? `${recurrenceType.charAt(0).toUpperCase() + recurrenceType.slice(1)} until ${recurrenceEndDate}`
+                    : 'None';
+                
+                alert(`Seat ${bookingSeat.id} booked successfully!\n\nUser: ${user?.name || 'Not logged in'}\nLocation: ${locationInfo}\nDate: ${selectedDate}\nRecurrence: ${recurrenceInfo}`);
+                handleCloseBookingDialog();
+              }}
+            >
               Confirm Booking
             </Button>
           </div>
