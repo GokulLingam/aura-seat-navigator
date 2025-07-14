@@ -340,6 +340,70 @@ Authorization: Bearer <access_token>
 }
 ```
 
+### 4. Seat Booking Endpoints
+
+#### 4.1 Book a Seat
+**POST** `/bookings/seat`
+
+Books a seat for a user on a specific date, with optional recurrence.
+
+**Request Headers:**
+```
+Authorization: Bearer <access_token>
+Content-Type: application/json
+```
+
+**Request Body:**
+```json
+{
+  "seatId": "seat_12345",
+  "date": "2024-06-10",
+  "officeLocation": "main-office",
+  "building": "building-a",
+  "floor": "floor-1",
+  "recurrence": {
+    "type": "none",         // "none", "daily", "weekly", or "custom"
+    "endDate": "2024-06-20",// required if type is "daily" or "weekly"
+    "customDates": ["2024-06-12", "2024-06-15"] // required if type is "custom"
+  }
+}
+```
+- `seatId`: The unique ID of the seat to book.
+- `date`: The start date of the booking (YYYY-MM-DD).
+- `officeLocation`, `building`, `floor`: Context for the booking.
+- `recurrence`: (optional) Recurrence details.
+
+**Response (200):**
+```json
+{
+  "success": true,
+  "booking": {
+    "id": "booking_98765",
+    "seatId": "seat_12345",
+    "userId": "user_123456",
+    "date": "2024-06-10",
+    "recurrence": {
+      "type": "none"
+    },
+    "status": "confirmed"
+  },
+  "message": "Seat booked successfully"
+}
+```
+
+**Error Responses:**
+- **409 Conflict** (seat already booked)
+- **403 Forbidden** (insufficient permissions)
+- **422 Validation Error** (invalid input)
+
+```json
+{
+  "success": false,
+  "error": "SEAT_ALREADY_BOOKED",
+  "message": "The seat is already booked for the selected date."
+}
+```
+
 ## Error Responses
 
 ### Standard Error Format

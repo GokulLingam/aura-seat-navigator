@@ -8,6 +8,8 @@ import { seats, resources, deskAreas, officeLayout, floorSymbols as initialFloor
 import { CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/useAuth';
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 // Equipment filter options
 const EQUIPMENT_OPTIONS = ["Monitor", "Dock", "Window Seat"];
@@ -1156,10 +1158,14 @@ All positions, dimensions, and customizations have been captured!`;
         setSelectedSeats(new Set([seatId]));
       }
     } else {
-      // Non-edit mode: show seat details
+      // Non-edit mode: open booking dialog directly
       const seat = seats.find(s => s.id === seatId) || newSeats.find(s => s.id === seatId);
       if (seat) {
-        handleSeatDetails(seat);
+        setBookingSeat(seat);
+        setShowBookingDialog(true);
+        setRecurrenceType('none');
+        setCustomDates([]);
+        setRecurrenceEndDate('');
       }
     }
   };
@@ -1221,10 +1227,6 @@ All positions, dimensions, and customizations have been captured!`;
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
-  // Seat details card state
-  const [selectedSeatDetails, setSelectedSeatDetails] = useState<Seat | null>(null);
-  const [showSeatDetails, setShowSeatDetails] = useState(false);
-
   // Handler to open booking dialog
   const handleBookSeat = (seat: Seat) => {
     setBookingSeat(seat);
@@ -1242,22 +1244,46 @@ All positions, dimensions, and customizations have been captured!`;
     setRecurrenceEndDate('');
   };
 
-  // Handler to show seat details
-  const handleSeatDetails = (seat: Seat) => {
-    setSelectedSeatDetails(seat);
-    setShowSeatDetails(true);
-  };
-
-  // Handler to close seat details
-  const handleCloseSeatDetails = () => {
-    setShowSeatDetails(false);
-    setSelectedSeatDetails(null);
-  };
-
   // Filtered seats based on equipment
   const filteredSeats = equipmentFilter.length === 0
     ? seats
     : seats.filter(seat => equipmentFilter.every(eq => seat.equipment?.includes(eq)));
+
+  // Add this handler inside the FloorPlan component
+  const handleConfirmBooking = async () => {
+    if (!bookingSeat) return;
+    const body = {
+      seatId: bookingSeat.id,
+      date: selectedDate,
+      officeLocation: selectedOfficeLocation,
+      building: selectedBuilding,
+      floor: selectedFloor,
+      recurrence: {
+        type: recurrenceType,
+        endDate: recurrenceEndDate,
+        customDates: customDates
+      }
+    };
+    try {
+      const res = await fetch('http://localhost:3001/api/bookings/seat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert('Seat booked successfully!');
+        handleCloseBookingDialog();
+      } else {
+        alert(data.message || 'Booking failed');
+      }
+    } catch (err) {
+      alert('Network or server error');
+    }
+  };
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -1536,96 +1562,6 @@ All positions, dimensions, and customizations have been captured!`;
           </div>
         </div>
       </Card>
-
-      {/* Seat Details Card - Show when seat is selected in non-edit mode */}
-      {showSeatDetails && selectedSeatDetails && !isEditMode && (
-        <Card className="border-2 border-[#FFB81C] bg-white dark:bg-[#1a1a1a] max-w-2xl mx-auto">
-          <CardContent className="p-4 md:p-6">
-            <div className="flex flex-col md:flex-row items-start justify-between gap-4">
-              <div className="flex flex-col md:flex-row items-center md:items-start gap-4 w-full">
-                {/* Seat Image Preview - Responsive sizing */}
-                <div className="relative flex-shrink-0">
-                  <img
-                    src="/default-image-missing-placeholder-free-vector.jpg"
-                    alt="Seat Preview"
-                    className="w-48 h-48 md:w-64 md:h-64 object-contain rounded-2xl border-2 border-[#FFD700] shadow-lg bg-white"
-                  />
-                </div>
-                {/* Seat Information */}
-                <div className="space-y-3 flex-1 min-w-0">
-                  <div>
-                    <h3 className="text-xl md:text-2xl font-bold text-amber-900 mb-1">Seat {selectedSeatDetails.id}</h3>
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 text-sm">
-                      <div className="flex items-center space-x-1">
-                        <span className="text-muted-foreground">Type:</span>
-                        <span className="font-medium capitalize text-amber-800">
-                          {selectedSeatDetails.type.replace('-', ' ')}
-                        </span>
-                      </div>
-                      <div className="flex items-center space-x-1">
-                        <span className="text-muted-foreground">Status:</span>
-                        <span className={`font-medium capitalize px-2 py-1 rounded-full text-xs ${
-                          selectedSeatDetails.status === 'available' 
-                            ? 'bg-green-100 text-green-700 border border-green-200' 
-                            : 'bg-red-100 text-red-700 border border-red-200'
-                        }`}>
-                          {selectedSeatDetails.status}
-                        </span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Location: ({selectedSeatDetails.x.toFixed(1)}, {selectedSeatDetails.y.toFixed(1)})
-                    </p>
-                  </div>
-                  {/* Equipment */}
-                  {selectedSeatDetails.equipment && selectedSeatDetails.equipment.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-amber-900 mb-2">Equipment Available:</p>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedSeatDetails.equipment.map((equipment, idx) => (
-                          <Badge key={idx} variant="secondary" className="text-xs bg-amber-100 text-amber-800 border-amber-200 flex items-center space-x-1">
-                            {equipment === 'Monitor' && <Monitor className="w-3 h-3" />}
-                            {equipment === 'Dock' && <Wifi className="w-3 h-3" />}
-                            <span>{equipment}</span>
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-              {/* Action Buttons */}
-              <div className="flex flex-row md:flex-col gap-2 md:gap-3 w-full md:w-auto justify-center md:justify-start">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={handleCloseSeatDetails}
-                  className="text-amber-700 border-amber-300 hover:bg-amber-50 flex-1 md:flex-none"
-                >
-                  Close
-                </Button>
-                {selectedSeatDetails.status === 'available' && (
-                  <Button 
-                    variant="default" 
-                    size="sm"
-                    onClick={() => handleBookSeat(selectedSeatDetails)}
-                    className="bg-[#FFD700] text-amber-900 hover:bg-amber-400 shadow-lg flex-1 md:flex-none"
-                  >
-                    Book This Seat
-                  </Button>
-                )}
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="text-amber-700 border-amber-300 hover:bg-amber-50 flex-1 md:flex-none"
-                >
-                  View Details
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Edit Mode Toolbar - Move to top in edit mode */}
       {isEditMode && (
@@ -2426,17 +2362,15 @@ All positions, dimensions, and customizations have been captured!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
-                        : showSeatDetails && selectedSeatDetails?.id === seat.id
-                          ? '#FFD700' // Gold color for selected seat in non-edit mode
-                          : 'hsl(var(--seat-available))'
+                        : 'hsl(var(--seat-available))'
                     }
                     stroke={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? '#FFD700' // Gold border for selected seat
                         : 'hsl(var(--border))'
                     }
                     strokeWidth={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? "0.5"
                         : "0.2"
                     }
@@ -2452,18 +2386,16 @@ All positions, dimensions, and customizations have been captured!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
-                        : showSeatDetails && selectedSeatDetails?.id === seat.id
-                          ? '#FFD700' // Gold color for selected seat in non-edit mode
-                          : 'hsl(var(--seat-available))'
+                        : 'hsl(var(--seat-available))'
                     }
                     fillOpacity="0.7"
                     stroke={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? '#FFD700' // Gold border for selected seat
                         : 'hsl(var(--border))'
                     }
                     strokeWidth={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? "0.3"
                         : "0.2"
                     }
@@ -2514,17 +2446,15 @@ All positions, dimensions, and customizations have been captured!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
-                        : showSeatDetails && selectedSeatDetails?.id === seat.id
-                          ? '#FFD700' // Gold color for selected seat in non-edit mode
-                          : 'hsl(var(--seat-available))'
+                        : 'hsl(var(--seat-available))'
                     }
                     stroke={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? '#FFD700' // Gold border for selected seat
                         : 'hsl(var(--border))'
                     }
                     strokeWidth={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? "0.5"
                         : "0.2"
                     }
@@ -2540,18 +2470,16 @@ All positions, dimensions, and customizations have been captured!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
-                        : showSeatDetails && selectedSeatDetails?.id === seat.id
-                          ? '#FFD700' // Gold color for selected seat in non-edit mode
-                          : 'hsl(var(--seat-available))'
+                        : 'hsl(var(--seat-available))'
                     }
                     fillOpacity="0.7"
                     stroke={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? '#FFD700' // Gold border for selected seat
                         : 'hsl(var(--border))'
                     }
                     strokeWidth={
-                      selectedSeats.has(seat.id) || (showSeatDetails && selectedSeatDetails?.id === seat.id)
+                      selectedSeats.has(seat.id)
                         ? "0.3"
                         : "0.2"
                     }
@@ -2891,21 +2819,30 @@ All positions, dimensions, and customizations have been captured!`;
       {/* Booking Dialog/Modal */}
       {showBookingDialog && bookingSeat && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-          <div className="bg-background rounded-lg shadow-2xl p-6 min-w-[320px] max-w-[90vw]">
+          <div className="bg-background rounded-2xl shadow-2xl p-4 sm:p-8 md:p-10 w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl mx-auto">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold">Book Seat {bookingSeat.id}</h2>
+              <h2 className="text-lg sm:text-xl font-bold">Book Seat {bookingSeat.id}</h2>
               <Button size="icon" variant="ghost" onClick={handleCloseBookingDialog}>&times;</Button>
             </div>
-            <div className="mb-4">
-              <div className="mb-2 text-sm text-muted-foreground">Type: <span className="font-medium">{bookingSeat.type}</span></div>
-              <div className="mb-2 text-sm text-muted-foreground">Status: <span className="font-medium capitalize">{bookingSeat.status}</span></div>
-              <div className="mb-2 text-sm text-muted-foreground">User: <span className="font-medium">{user?.name || 'Not logged in'}</span></div>
-              <div className="mb-2 text-sm text-muted-foreground">Office Location: <span className="font-medium">{selectedOfficeLocation.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
-              <div className="mb-2 text-sm text-muted-foreground">Building: <span className="font-medium">{selectedBuilding.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
-              <div className="mb-2 text-sm text-muted-foreground">Floor: <span className="font-medium">{selectedFloor.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
-              <div className="mb-2 text-sm text-muted-foreground">Date: <span className="font-medium">{selectedDate}</span></div>
+            {/* Seat Image Preview - Large and Wide */}
+            <div className="w-full mb-2">
+              <AspectRatio ratio={4/1.7} className="w-full h-32 sm:h-40 md:h-48 rounded-2xl overflow-hidden border border-muted bg-muted">
+                <Avatar className="w-full h-full rounded-2xl">
+                  <AvatarImage src="/placeholder.svg" alt="Seat preview" className="object-cover w-full h-full" />
+                  <AvatarFallback>Seat</AvatarFallback>
+                </Avatar>
+              </AspectRatio>
+            </div>
+            <div className="mb-2">
+              <div className="mb-2 text-sm sm:text-base text-muted-foreground">Type: <span className="font-medium">{bookingSeat.type}</span></div>
+              <div className="mb-2 text-sm sm:text-base text-muted-foreground">Status: <span className="font-medium capitalize">{bookingSeat.status}</span></div>
+              <div className="mb-2 text-sm sm:text-base text-muted-foreground">User: <span className="font-medium">{user?.name || 'Not logged in'}</span></div>
+              <div className="mb-2 text-sm sm:text-base text-muted-foreground">Office Location: <span className="font-medium">{selectedOfficeLocation.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
+              <div className="mb-2 text-sm sm:text-base text-muted-foreground">Building: <span className="font-medium">{selectedBuilding.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
+              <div className="mb-2 text-sm sm:text-base text-muted-foreground">Floor: <span className="font-medium">{selectedFloor.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}</span></div>
+              <div className="mb-2 text-sm sm:text-base text-muted-foreground">Date: <span className="font-medium">{selectedDate}</span></div>
               {bookingSeat.equipment && bookingSeat.equipment.length > 0 && (
-                <div className="mb-2 text-sm text-muted-foreground">Equipment: <span className="font-medium">{bookingSeat.equipment.join(', ')}</span></div>
+                <div className="mb-2 text-sm sm:text-base text-muted-foreground">Equipment: <span className="font-medium">{bookingSeat.equipment.join(', ')}</span></div>
               )}
             </div>
             {/* Recurrence Section */}
@@ -2962,23 +2899,7 @@ All positions, dimensions, and customizations have been captured!`;
               variant="default" 
               className="w-full" 
               disabled={(recurrenceType === 'daily' || recurrenceType === 'weekly') && !recurrenceEndDate}
-              onClick={() => {
-                // Validate end date for recurring bookings
-                if ((recurrenceType === 'daily' || recurrenceType === 'weekly') && !recurrenceEndDate) {
-                  alert('Please select an end date for recurring bookings');
-                  return;
-                }
-                
-                const locationInfo = `${selectedOfficeLocation.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} - ${selectedBuilding.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())} - ${selectedFloor.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}`;
-                const recurrenceInfo = recurrenceType === 'custom' 
-                  ? `Custom Dates: ${customDates.join(', ')}`
-                  : recurrenceType !== 'none' 
-                    ? `${recurrenceType.charAt(0).toUpperCase() + recurrenceType.slice(1)} until ${recurrenceEndDate}`
-                    : 'None';
-                
-                alert(`Seat ${bookingSeat.id} booked successfully!\n\nUser: ${user?.name || 'Not logged in'}\nLocation: ${locationInfo}\nDate: ${selectedDate}\nRecurrence: ${recurrenceInfo}`);
-                handleCloseBookingDialog();
-              }}
+              onClick={handleConfirmBooking}
             >
               Confirm Booking
             </Button>
