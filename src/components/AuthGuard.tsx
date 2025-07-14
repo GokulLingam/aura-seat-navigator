@@ -18,7 +18,10 @@ const AuthGuard: React.FC<AuthGuardProps> = ({
   fallback,
   showLogin = true,
 }) => {
-  const { isAuthenticated, isLoading, user, hasRole, hasPermission, hasAnyRole } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const hasRole = (role: string) => user?.role === role;
+  const hasPermission = (perm: string) => user?.permissions?.includes(perm);
+  const hasAnyRole = (roles: string[]) => roles.includes(user?.role);
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {

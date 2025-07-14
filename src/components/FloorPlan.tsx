@@ -4,12 +4,15 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Monitor, Wifi, Coffee, ZoomIn, ZoomOut, RotateCcw, RotateCw, Move, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Undo2, Plus, Menu, X } from 'lucide-react';
-import { seats, resources, deskAreas, officeLayout, floorSymbols as initialFloorSymbols, type Seat, type Resource, type DeskArea, type FloorSymbol } from '@/data/floorPlanData';
-import { CardContent } from '@/components/ui/card';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
+// Import types only
+import type { Seat, DeskArea } from '@/data/floorPlanData';
+import floorPlanService from '@/services/floorPlanService';
+// Import local data as fallback
+import { seats as localSeats, deskAreas as localDeskAreas, officeLayout as localOfficeLayout } from '@/data/floorPlanData';
 
 // Equipment filter options
 const EQUIPMENT_OPTIONS = ["Monitor", "Dock", "Window Seat"];
@@ -20,9 +23,9 @@ const FloorPlan = () => {
   
   const [selectedSeat, setSelectedSeat] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
-  const [selectedFloor, setSelectedFloor] = useState('floor-1');
-  const [selectedOfficeLocation, setSelectedOfficeLocation] = useState('main-office');
-  const [selectedBuilding, setSelectedBuilding] = useState('building-a');
+  const [selectedFloor, setSelectedFloor] = useState('Floor8');
+  const [selectedOfficeLocation, setSelectedOfficeLocation] = useState('IN10');
+  const [selectedBuilding, setSelectedBuilding] = useState('campus30');
   const [zoom, setZoom] = useState(isMobile ? 1 : 2); // Default zoom for mobile
   const [showZoomControls, setShowZoomControls] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(isMobile ? 100 : 200); // Percentage display
@@ -56,7 +59,7 @@ const FloorPlan = () => {
   // New features state
   const [newSeats, setNewSeats] = useState<Seat[]>([]);
   const [newSeatPositions, setNewSeatPositions] = useState<Record<string, { x: number; y: number; rotation: number }>>({});
-  const [floorSymbols, setFloorSymbols] = useState<FloorSymbol[]>(initialFloorSymbols);
+  const [floorSymbols, setFloorSymbols] = useState<any[]>([]);
   const [symbolPositions, setSymbolPositions] = useState<Record<string, { x: number; y: number; rotation: number }>>({});
   const [deskAreaPositions, setDeskAreaPositions] = useState<Record<string, { x: number; y: number; rotation: number }>>({});
   const [isPlacingItem, setIsPlacingItem] = useState<'seat' | null>(null);
@@ -78,10 +81,74 @@ const FloorPlan = () => {
   const [deskAreaStart, setDeskAreaStart] = useState({ x: 0, y: 0 });
   const [deskAreaEnd, setDeskAreaEnd] = useState({ x: 0, y: 0 });
 
+  // NEW: State for floor plan data from backend
+  const [floorPlan, setFloorPlan] = useState<{ seats: Seat[]; deskAreas: DeskArea[]; officeLayout: any } | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch floor plan data based on selected values
+  const fetchFloorPlan = async () => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      console.log('Fetching floor plan for:', { building: selectedBuilding, office: selectedOfficeLocation, floor: selectedFloor });
+      
+      // Direct API call to the correct endpoint
+      const params = new URLSearchParams({
+        building: selectedBuilding,
+        office: selectedOfficeLocation,
+        floor: selectedFloor
+      });
+      
+      const apiUrl = `http://localhost:3001/api/floorplan?${params}`;
+      console.log('Fetching from:', apiUrl);
+      
+      const response = await fetch(apiUrl);
+      console.log('Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch floor plan`);
+      }
+      
+      const data = await response.json();
+      console.log('Received data:', data);
+      setFloorPlan(data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Fetch error:', err);
+      
+      // Final fallback: use local data
+      console.log('Using local data as fallback');
+      setFloorPlan({
+        seats: localSeats,
+        deskAreas: localDeskAreas,
+        officeLayout: localOfficeLayout
+      });
+      setError('Using local data - Backend not available');
+      setLoading(false);
+    }
+  };
+
+  // Fetch data when selections change
+  useEffect(() => {
+    if (selectedBuilding && selectedOfficeLocation && selectedFloor) {
+      fetchFloorPlan();
+    }
+  }, [selectedBuilding, selectedOfficeLocation, selectedFloor]);
+
+
+
+  // Use floorPlan?.seats, floorPlan?.deskAreas, floorPlan?.officeLayout instead of imported data
+  const seats: Seat[] = floorPlan?.seats || [];
+  const deskAreas: DeskArea[] = floorPlan?.deskAreas || [];
+  const officeLayout = floorPlan?.officeLayout || { width: 210, height: 82, x: 0, y: 0 };
+  const resources: any[] = [];
+
   // Layout editing state - match viewBox exactly by default
   const [layoutDimensions, setLayoutDimensions] = useState({
-    width: officeLayout.width, // Use imported office layout width
-    height: officeLayout.height // Use imported office layout height
+    width: officeLayout.width,
+    height: officeLayout.height
   });
 
   // Layout position state for moving the layout
@@ -866,9 +933,11 @@ const FloorPlan = () => {
     }
   };
 
-  // Save function to update floorPlanData
-  const saveFloorPlan = () => {
+  // Save function to update floor plan in database
+  const saveFloorPlan = async () => {
     try {
+      setLoading(true);
+      
       // Create updated data with current positions for existing seats
       const updatedSeats = seats.map(seat => {
         const position = seatPositions[seat.id];
@@ -949,110 +1018,68 @@ const FloorPlan = () => {
         floorSymbols: updatedFloorSymbols
       };
 
-      // Generate timestamp for the file
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      
-      // Convert to formatted string with comprehensive data capture
-      const dataString = `// Floor Plan Data - Generated on ${new Date().toLocaleString()}
-// Total Items Captured: ${allUpdatedSeats.length} seats, ${updatedResources.length} resources, ${allUpdatedDeskAreas.length} desk areas, ${updatedFloorSymbols.length} floor symbols
+      // Prepare the request payload
+      const payload = {
+        building_name: selectedBuilding,
+        office_location: selectedOfficeLocation,
+        floor_id: selectedFloor,
+        plan_json: JSON.stringify(updatedData)
+      };
 
-export interface Seat {
-  id: string;
-  x: number;
-  y: number;
-  status: 'available' | 'occupied' | 'selected';
-  type: 'desk' | 'meeting-room' | 'phone-booth';
-  equipment?: string[];
-  rotation?: number;
-}
+      console.log('Saving floor plan to database:', payload);
 
-export interface Resource {
-  id: string;
-  name: string;
-  type: 'meeting-room' | 'equipment' | 'amenity';
-  x: number;
-  y: number;
-  capacity?: number;
-  status: 'available' | 'booked';
-}
+      // Call the backend API to save the floor plan
+      const response = await fetch('http://localhost:8080/api/floorplan/save', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
 
-export interface DeskArea {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  type: 'workspace' | 'meeting-area' | 'phone-booth-area';
-  color?: string;
-}
+      console.log('Save response status:', response.status);
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: Failed to save floor plan`);
+      }
 
+      const result = await response.json();
+      console.log('Save result:', result);
 
-export interface OfficeLayout {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  fillColor: string;
-  fillOpacity: number;
-  strokeColor: string;
-  strokeWidth: number;
-}
-
-// Updated seats with current positions (including new seats created during session)
-// Total seats: ${allUpdatedSeats.length} (${seats.length} existing + ${newSeats.length} new)
-export const seats: Seat[] = ${JSON.stringify(allUpdatedSeats, null, 2).replace(/"([^"]+)":/g, '$1:')};
-
-// Resources (meeting rooms, equipment, amenities)
-// Total resources: ${updatedResources.length}
-export const resources: Resource[] = ${JSON.stringify(updatedResources, null, 2).replace(/"([^"]+)":/g, '$1:')};
-
-// Desk areas (including custom areas created during session)
-// Total desk areas: ${allUpdatedDeskAreas.length} (${deskAreas.length} existing + ${customDeskAreas.length} custom)
-export const deskAreas: DeskArea[] = ${JSON.stringify(allUpdatedDeskAreas, null, 2).replace(/"([^"]+)":/g, '$1:')};
-
-// Floor symbols (doors, washrooms, emergency exits, etc.)
-// Total floor symbols: ${updatedFloorSymbols.length}
-export const floorSymbols: FloorSymbol[] = ${JSON.stringify(updatedFloorSymbols, null, 2).replace(/"([^"]+)":/g, '$1:')};
-
-// Office layout configuration with updated dimensions
-// Layout dimensions: ${layoutDimensions.width}x${layoutDimensions.height}
-export const officeLayout: OfficeLayout = ${JSON.stringify(updatedData.officeLayout, null, 2).replace(/"([^"]+)":/g, '$1:')};
-`;
-
-      // Create a blob and download the file
-      const blob = new Blob([dataString], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `floorPlanData_${timestamp}.ts`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      // Show comprehensive success message
+      // Show success message
       const totalItems = allUpdatedSeats.length + updatedResources.length + allUpdatedDeskAreas.length + updatedFloorSymbols.length;
-      const successMessage = `✅ Floor Plan Data Successfully Saved!
+      const successMessage = `✅ Floor Plan Successfully Saved to Database!
 
-📊 Data Captured:
+📊 Data Saved:
 • ${allUpdatedSeats.length} seats (${seats.length} existing + ${newSeats.length} new)
 • ${updatedResources.length} resources
 • ${allUpdatedDeskAreas.length} desk areas (${deskAreas.length} existing + ${customDeskAreas.length} custom)
 • ${updatedFloorSymbols.length} floor symbols
 • Office layout: ${layoutDimensions.width}x${layoutDimensions.height} at (${layoutPosition.x.toFixed(1)}, ${layoutPosition.y.toFixed(1)})
 
-📁 File: floorPlanData_${timestamp}.ts
-📍 Location: Downloads folder
+🏢 Location: ${selectedBuilding} - ${selectedOfficeLocation} - ${selectedFloor}
 
-All positions, dimensions, and customizations have been captured!`;
+All changes have been saved to the database!`;
 
       alert(successMessage);
       
+      // Reset edit mode and clear selections
+      setIsEditMode(false);
+      setSelectedSeats(new Set());
+      setSelectedDeskAreas(new Set());
+      setSelectedSymbols(new Set());
+      setEditingSeat(null);
+      setEditingDeskArea(null);
+      
+      // Refresh the floor plan data
+      await fetchFloorPlan();
+      
     } catch (error) {
       console.error('Error saving floor plan:', error);
-      alert(`❌ Error saving floor plan data: ${error.message}\n\nPlease try again or contact support.`);
+      alert(`❌ Error saving floor plan to database: ${error.message}\n\nPlease try again or contact support.`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1176,9 +1203,7 @@ All positions, dimensions, and customizations have been captured!`;
     return 'bg-seat-available hover:bg-seat-selected';
   };
 
-  const getResourceColor = (resource: Resource) => {
-    return resource.status === 'available' ? 'bg-resource-available' : 'bg-resource-booked';
-  };
+
 
   // Layout position handlers
   const handleLayoutXChange = (value: string) => {
@@ -1454,17 +1479,18 @@ All positions, dimensions, and customizations have been captured!`;
       <Card className="p-4">
         <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Floor:</label>
+            <label className="text-sm font-medium">Building:</label>
             <select 
               className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[120px]"
-              value={selectedFloor}
-              onChange={(e) => setSelectedFloor(e.target.value)}
+              value={selectedBuilding}
+              onChange={(e) => setSelectedBuilding(e.target.value)}
             >
-              <option value="floor-1">Floor 1</option>
-              <option value="floor-2">Floor 2</option>
-              <option value="floor-3">Floor 3</option>
-              <option value="floor-4">Floor 4</option>
-              <option value="floor-5">Floor 5</option>
+              <option value="">Select Building</option>
+              <option value="campus20">Campus 20</option>
+              <option value="campus30">Campus 30</option>
+              <option value="building-a">Building A</option>
+              <option value="building-b">Building B</option>
+              <option value="building-c">Building C</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -1474,6 +1500,8 @@ All positions, dimensions, and customizations have been captured!`;
               value={selectedOfficeLocation}
               onChange={(e) => setSelectedOfficeLocation(e.target.value)}
             >
+              <option value="">Select Office</option>
+              <option value="IN10">IN10</option>
               <option value="main-office">Main Office</option>
               <option value="branch-north">North Branch</option>
               <option value="branch-south">South Branch</option>
@@ -1482,15 +1510,21 @@ All positions, dimensions, and customizations have been captured!`;
             </select>
           </div>
           <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Building:</label>
+            <label className="text-sm font-medium">Floor:</label>
             <select 
               className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[120px]"
-              value={selectedBuilding}
-              onChange={(e) => setSelectedBuilding(e.target.value)}
+              value={selectedFloor}
+              onChange={(e) => setSelectedFloor(e.target.value)}
             >
-              <option value="building-a">Building A</option>
-              <option value="building-b">Building B</option>
-              <option value="building-c">Building C</option>
+              <option value="">Select Floor</option>
+              <option value="Floor8">Floor 8</option>
+              <option value="Floor7">Floor 7</option>
+              <option value="Floor6">Floor 6</option>
+              <option value="Floor5">Floor 5</option>
+              <option value="Floor4">Floor 4</option>
+              <option value="Floor3">Floor 3</option>
+              <option value="Floor2">Floor 2</option>
+              <option value="Floor1">Floor 1</option>
             </select>
           </div>
           <div className="flex items-center gap-2">
@@ -1502,6 +1536,13 @@ All positions, dimensions, and customizations have been captured!`;
               className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[140px]"
             />
           </div>
+          <Button 
+            onClick={fetchFloorPlan}
+            disabled={!selectedBuilding || !selectedOfficeLocation || !selectedFloor || loading}
+            className="bg-blue-600 hover:bg-blue-700"
+          >
+            {loading ? 'Loading...' : 'Load Floor Plan'}
+          </Button>
         </div>
       </Card>
 
@@ -2003,6 +2044,74 @@ All positions, dimensions, and customizations have been captured!`;
               </div>
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* Status Messages */}
+      {loading && (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+            <p>Loading floor plan...</p>
+          </div>
+        </div>
+      )}
+      
+      {error && (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center max-w-md">
+            <div className="text-amber-600 mb-2">
+              <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+              </svg>
+            </div>
+            <p className="text-sm text-muted-foreground mb-2">{error}</p>
+            {error.includes('Backend not available') && (
+              <p className="text-xs text-muted-foreground mb-3">
+                The floor plan is now loaded with local data. You can still interact with it normally.
+              </p>
+            )}
+            {!error.includes('Backend not available') && (
+              <div className="flex gap-2 justify-center mt-3">
+                <Button 
+                  size="sm"
+                  onClick={fetchFloorPlan}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  Retry
+                </Button>
+                <Button 
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setFloorPlan({
+                      seats: localSeats,
+                      deskAreas: localDeskAreas,
+                      officeLayout: localOfficeLayout
+                    });
+                    setError('Using local data - Backend not available');
+                  }}
+                >
+                  Use Local Data
+                </Button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      {!floorPlan && !loading && !error && (
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <p className="text-gray-600 mb-4">Please select Building, Office Location, and Floor to load the floor plan</p>
+            <Button 
+              onClick={fetchFloorPlan}
+              disabled={!selectedBuilding || !selectedOfficeLocation || !selectedFloor}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Load Floor Plan
+            </Button>
+          </div>
         </div>
       )}
 
