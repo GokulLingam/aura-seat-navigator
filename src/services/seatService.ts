@@ -15,7 +15,7 @@ export interface SeatBookingData {
 export interface SeatFilter {
   date?: string;
   equipment?: string[];
-  status?: 'available' | 'occupied' | 'selected';
+  status?: 'available' | 'occupied' | 'reserved' | 'maintenance' | 'selected';
   type?: 'desk' | 'meeting-room' | 'phone-booth';
 }
 

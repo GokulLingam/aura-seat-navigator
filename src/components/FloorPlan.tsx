@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Monitor, Wifi, Coffee, ZoomIn, ZoomOut, RotateCcw, RotateCw, Move, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Undo2, Plus, Menu, X } from 'lucide-react';
+import { Users, Monitor, Wifi, Coffee, ZoomIn, ZoomOut, RotateCcw, RotateCw, Move, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Undo2, Plus, Menu, X, Trash2 } from 'lucide-react';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useAuth } from '@/hooks/useAuth';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
@@ -92,40 +92,105 @@ const FloorPlan = () => {
     setError(null);
     
     try {
-      console.log('Fetching floor plan for:', { building: selectedBuilding, office: selectedOfficeLocation, floor: selectedFloor });
+      console.log('Fetching floor plan for:', { building: selectedBuilding, office: selectedOfficeLocation, floor: selectedFloor, date: selectedDate });
       
       // Direct API call to the correct endpoint
       const params = new URLSearchParams({
         building: selectedBuilding,
         office: selectedOfficeLocation,
-        floor: selectedFloor
+        floor: selectedFloor,
+        date: selectedDate
       });
       
-      const apiUrl = `http://localhost:3001/api/floorplan?${params}`;
-      console.log('Fetching from:', apiUrl);
+      // Try multiple API endpoints for mobile compatibility
+      const apiEndpoints = [
+        `http://localhost:3001/api/floorplan?${params}`,
+        `http://127.0.0.1:3001/api/floorplan?${params}`,
+        `/api/floorplan?${params}` // Relative path fallback
+      ];
       
-      const response = await fetch(apiUrl);
-      console.log('Response status:', response.status);
+      let response = null;
+      let lastError = null;
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: Failed to fetch floor plan`);
+      // Try each endpoint until one works
+      for (const apiUrl of apiEndpoints) {
+        try {
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), isMobile ? 15000 : 10000);
+          
+          response = await fetch(apiUrl, {
+            signal: controller.signal,
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'Cache-Control': 'no-cache'
+            },
+            mode: 'cors'
+          });
+          
+          clearTimeout(timeoutId);
+          
+          if (response.ok) {
+            break; // Success, exit the loop
+          }
+        } catch (err) {
+          lastError = err;
+          continue; // Try next endpoint
+        }
+      }
+      
+      if (!response || !response.ok) {
+        throw lastError || new Error(`HTTP ${response?.status}: Failed to fetch floor plan from all endpoints`);
       }
       
       const data = await response.json();
-      console.log('Received data:', data);
+      
+      // Validate data structure for mobile
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid data format received from server');
+      }
+      
+      // Ensure required properties exist
+      if (!data.seats || !Array.isArray(data.seats)) {
+        data.seats = [];
+      }
+      
+      if (!data.deskAreas || !Array.isArray(data.deskAreas)) {
+        data.deskAreas = [];
+      }
+      
+      if (!data.officeLayout || typeof data.officeLayout !== 'object') {
+        data.officeLayout = { width: 210, height: 82, x: 0, y: 0 };
+      }
+      
       setFloorPlan(data);
       setLoading(false);
+      
     } catch (err) {
       console.error('Fetch error:', err);
       
+      // Enhanced error handling for mobile
+      let errorMessage = 'Failed to load floor plan';
+      
+      if (err instanceof Error) {
+        if (err.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please check your connection and try again.';
+        } else if (err.message.includes('Failed to fetch')) {
+          errorMessage = 'Network error. Please check your internet connection.';
+        } else if (err.message.includes('CORS')) {
+          errorMessage = 'CORS error. Backend server may not be configured for mobile access.';
+        } else {
+          errorMessage = err.message;
+        }
+      }
+      
       // Final fallback: use local data
-      console.log('Using local data as fallback');
       setFloorPlan({
         seats: localSeats,
         deskAreas: localDeskAreas,
         officeLayout: localOfficeLayout
       });
-      setError('Using local data - Backend not available');
+      setError(`Using local data - ${errorMessage}`);
       setLoading(false);
     }
   };
@@ -135,9 +200,22 @@ const FloorPlan = () => {
     if (selectedBuilding && selectedOfficeLocation && selectedFloor) {
       fetchFloorPlan();
     }
-  }, [selectedBuilding, selectedOfficeLocation, selectedFloor]);
+  }, [selectedBuilding, selectedOfficeLocation, selectedFloor, selectedDate]);
 
-
+  // Mobile-specific initialization
+  useEffect(() => {
+    if (isMobile) {
+      // Set mobile-specific defaults
+      if (!selectedBuilding) setSelectedBuilding('campus30');
+      if (!selectedOfficeLocation) setSelectedOfficeLocation('IN10');
+      if (!selectedFloor) setSelectedFloor('Floor8');
+      
+      // Auto-load floor plan on mobile if all values are set
+      if (selectedBuilding && selectedOfficeLocation && selectedFloor && !floorPlan && !loading) {
+        fetchFloorPlan();
+      }
+    }
+  }, [isMobile]);
 
   // Use floorPlan?.seats, floorPlan?.deskAreas, floorPlan?.officeLayout instead of imported data
   const seats: Seat[] = floorPlan?.seats || [];
@@ -229,6 +307,7 @@ const FloorPlan = () => {
       setTouchStartTime(Date.now());
     } else if (e.touches.length === 2) {
       // Pinch to zoom
+      e.preventDefault(); // Prevent default to avoid conflicts
       setIsPinching(true);
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
@@ -243,7 +322,7 @@ const FloorPlan = () => {
 
   const handleTouchMove = (e: React.TouchEvent) => {
     if (isPinching && e.touches.length === 2) {
-      e.preventDefault();
+      e.preventDefault(); // Prevent default to avoid conflicts
       const touch1 = e.touches[0];
       const touch2 = e.touches[1];
       const distance = Math.sqrt(
@@ -850,6 +929,55 @@ const FloorPlan = () => {
     setSelectedSymbols(new Set());
   };
 
+  // Delete selected seats
+  const deleteSelectedSeats = () => {
+    if (selectedSeats.size === 0) return;
+    
+    const seatCount = selectedSeats.size;
+    const seatIds = Array.from(selectedSeats);
+    
+    // Show confirmation dialog
+    const confirmed = confirm(`Are you sure you want to delete ${seatCount} selected seat${seatCount > 1 ? 's' : ''}?\n\nThis action cannot be undone.`);
+    
+    if (!confirmed) return;
+    
+    // Remove selected seats from the seats array
+    setFloorPlan(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        seats: prev.seats.filter(seat => !selectedSeats.has(seat.id))
+      };
+    });
+    
+    // Remove selected seats from newSeats array
+    setNewSeats(prev => prev.filter(seat => !selectedSeats.has(seat.id)));
+    
+    // Clean up positions for deleted seats
+    setSeatPositions(prev => {
+      const newPositions = { ...prev };
+      selectedSeats.forEach(seatId => {
+        delete newPositions[seatId];
+      });
+      return newPositions;
+    });
+    
+    setNewSeatPositions(prev => {
+      const newPositions = { ...prev };
+      selectedSeats.forEach(seatId => {
+        delete newPositions[seatId];
+      });
+      return newPositions;
+    });
+    
+    // Clear selection
+    setSelectedSeats(new Set());
+    setEditingSeat(null);
+    
+    // Show success message
+    alert(`✅ Successfully deleted ${seatCount} seat${seatCount > 1 ? 's' : ''}!\n\nRemember to save your changes to persist the deletion.`);
+  };
+
   // Rotation function for symbols
   const rotateSymbols = (direction: 'clockwise' | 'counterclockwise') => {
     if (selectedSymbols.size === 0) return;
@@ -1029,7 +1157,7 @@ const FloorPlan = () => {
       console.log('Saving floor plan to database:', payload);
 
       // Call the backend API to save the floor plan
-      const response = await fetch('http://localhost:8080/api/floorplan/save', {
+      const response = await fetch('http://localhost:3001/api/floorplan/save', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1049,20 +1177,9 @@ const FloorPlan = () => {
 
       // Show success message
       const totalItems = allUpdatedSeats.length + updatedResources.length + allUpdatedDeskAreas.length + updatedFloorSymbols.length;
-      const successMessage = `✅ Floor Plan Successfully Saved to Database!
+      const successMessage = `✅ Floor Plan Successfully Saved to Database!\n\n📊 Data Saved:\n• ${allUpdatedSeats.length} seats (${seats.length} existing + ${newSeats.length} new)\n• ${updatedResources.length} resources\n• ${allUpdatedDeskAreas.length} desk areas (${deskAreas.length} existing + ${customDeskAreas.length} custom)\n• ${updatedFloorSymbols.length} floor symbols\n• Office layout: ${layoutDimensions.width}x${layoutDimensions.height} at (${layoutPosition.x.toFixed(1)}, ${layoutPosition.y.toFixed(1)})\n\n🏢 Location: ${selectedBuilding} - ${selectedOfficeLocation} - ${selectedFloor}\n\nAll changes have been saved to the database!`;
 
-📊 Data Saved:
-• ${allUpdatedSeats.length} seats (${seats.length} existing + ${newSeats.length} new)
-• ${updatedResources.length} resources
-• ${allUpdatedDeskAreas.length} desk areas (${deskAreas.length} existing + ${customDeskAreas.length} custom)
-• ${updatedFloorSymbols.length} floor symbols
-• Office layout: ${layoutDimensions.width}x${layoutDimensions.height} at (${layoutPosition.x.toFixed(1)}, ${layoutPosition.y.toFixed(1)})
-
-🏢 Location: ${selectedBuilding} - ${selectedOfficeLocation} - ${selectedFloor}
-
-All changes have been saved to the database!`;
-
-      alert(successMessage);
+      alert(successMessage + `\n\nSaved Layout X: ${layoutPosition.x.toFixed(1)}, Y: ${layoutPosition.y.toFixed(1)}`);
       
       // Reset edit mode and clear selections
       setIsEditMode(false);
@@ -1165,10 +1282,8 @@ All changes have been saved to the database!`;
 
   // Update handleSeatClick to support multi-select and seat details
   const handleSeatClick = (seatId: string, status: string, event: React.MouseEvent) => {
-    if (status !== 'available') return;
-    
     if (isEditMode) {
-      // Edit mode behavior
+      // Edit mode behavior - allow clicking all seat types
       if (event.ctrlKey || event.metaKey) {
         // Multi-select: toggle seat in set
         setSelectedSeats(prev => {
@@ -1185,7 +1300,9 @@ All changes have been saved to the database!`;
         setSelectedSeats(new Set([seatId]));
       }
     } else {
-      // Non-edit mode: open booking dialog directly
+      // Non-edit mode: only allow clicking available seats for booking
+      if (status !== 'available') return;
+      
       const seat = seats.find(s => s.id === seatId) || newSeats.find(s => s.id === seatId);
       if (seat) {
         setBookingSeat(seat);
@@ -1198,8 +1315,10 @@ All changes have been saved to the database!`;
   };
 
   const getSeatColor = (seat: Seat) => {
-    if (seat.status === 'occupied') return 'bg-seat-occupied';
     if (selectedSeats.has(seat.id)) return 'bg-seat-selected border-accent';
+    if (seat.status === 'occupied') return 'bg-seat-occupied hover:bg-seat-selected';
+    if (seat.status === 'reserved') return 'bg-yellow-500 hover:bg-seat-selected';
+    if (seat.status === 'maintenance') return 'bg-gray-500 hover:bg-seat-selected';
     return 'bg-seat-available hover:bg-seat-selected';
   };
 
@@ -1252,6 +1371,10 @@ All changes have been saved to the database!`;
   const [customDates, setCustomDates] = useState<string[]>([]);
   const [recurrenceEndDate, setRecurrenceEndDate] = useState('');
 
+  // Time selection state
+  const [startTime, setStartTime] = useState('09:00');
+  const [endTime, setEndTime] = useState('17:00');
+
   // Handler to open booking dialog
   const handleBookSeat = (seat: Seat) => {
     setBookingSeat(seat);
@@ -1267,6 +1390,8 @@ All changes have been saved to the database!`;
     setRecurrenceType('none');
     setCustomDates([]);
     setRecurrenceEndDate('');
+    setStartTime('09:00');
+    setEndTime('17:00');
   };
 
   // Filtered seats based on equipment
@@ -1277,36 +1402,98 @@ All changes have been saved to the database!`;
   // Add this handler inside the FloorPlan component
   const handleConfirmBooking = async () => {
     if (!bookingSeat) return;
-    const body = {
-      seatId: bookingSeat.id,
-      date: selectedDate,
-      officeLocation: selectedOfficeLocation,
-      building: selectedBuilding,
-      floor: selectedFloor,
-      recurrence: {
-        type: recurrenceType,
-        endDate: recurrenceEndDate,
-        customDates: customDates
-      }
-    };
+
     try {
-      const res = await fetch('http://localhost:3001/api/bookings/seat', {
+      // Prepare the request body according to the API specification
+      const requestBody = {
+        id: `booking_${Date.now()}`, // Generate unique booking ID
+        date: selectedDate,
+        startTime: startTime, // Use selected start time
+        endTime: endTime,   // Use selected end time
+        bookType: "DESK",
+        subType: bookingSeat.id, // Use seat ID as subType
+        officeLocation: selectedOfficeLocation,
+        building: selectedBuilding,
+        floor: selectedFloor,
+        recurrence: {
+          type: recurrenceType.toUpperCase(), // Convert to uppercase to match API
+          endDate: recurrenceEndDate || null,
+          customDates: customDates.length > 0 ? customDates : null
+        },
+        notes: "Seat booking from floor plan", // Could be made configurable
+        userId: user?.id || "user123" // Use actual user ID from auth context
+      };
+
+      console.log('Sending booking request:', requestBody);
+
+      // Make API call to the booking endpoint
+      const response = await fetch('http://localhost:3001/api/bookings/seat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         },
-        body: JSON.stringify(body)
+        body: JSON.stringify(requestBody)
       });
-      const data = await res.json();
+
+      const data = await response.json();
+      console.log('Booking response:', data);
+
       if (data.success) {
-        alert('Seat booked successfully!');
+        // Show success message with booking details
+        const bookingInfo = data.data;
+        const successMessage = `✅ Booking Confirmed Successfully!
+
+📅 Booking Details:
+• Seat: ${bookingSeat.id}
+• Date: ${selectedDate}
+• Time: ${requestBody.startTime} - ${requestBody.endTime}
+• Location: ${selectedBuilding} - ${selectedOfficeLocation} - ${selectedFloor}
+• Total Bookings: ${bookingInfo.totalBookings}
+• Booking Dates: ${bookingInfo.bookingDates.join(', ')}
+
+${recurrenceType !== 'none' ? `🔄 Recurrence: ${recurrenceType.toUpperCase()}` : ''}
+${recurrenceEndDate ? `📅 End Date: ${recurrenceEndDate}` : ''}
+${customDates.length > 0 ? `📋 Custom Dates: ${customDates.join(', ')}` : ''}
+
+Your booking has been confirmed and saved to the database!`;
+
+        alert(successMessage);
+        
+        // Close the booking dialog
         handleCloseBookingDialog();
+        
+        // Refresh the floor plan to show updated seat status
+        await fetchFloorPlan();
+        
+        // Optionally refresh the page to show updated seat colors
+        // window.location.reload();
+        
       } else {
-        alert(data.message || 'Booking failed');
+        // Handle booking failure
+        const errorMessage = data.message || 'Booking failed';
+        const errorDetails = data.errors ? `\n\nErrors:\n${data.errors.join('\n')}` : '';
+        
+        alert(`❌ Booking Failed: ${errorMessage}${errorDetails}`);
       }
-    } catch (err) {
-      alert('Network or server error');
+      
+    } catch (error) {
+      console.error('Booking error:', error);
+      
+      // Handle network or server errors
+      let errorMessage = 'Network or server error occurred';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Failed to fetch')) {
+          errorMessage = 'Unable to connect to the booking server. Please check your connection and try again.';
+        } else if (error.message.includes('CORS')) {
+          errorMessage = 'CORS error. The booking server may not be configured for this domain.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      alert(`❌ Booking Error: ${errorMessage}\n\nPlease try again or contact support if the problem persists.`);
     }
   };
 
@@ -1403,12 +1590,11 @@ All changes have been saved to the database!`;
                   variant="outline"
                   size="sm"
                   onClick={() => setShowMobileFilters(!showMobileFilters)}
+                  className="h-10 px-3"
                 >
                   Filters
                 </Button>
               </div>
-              
-
               
               {/* Mobile Zoom Controls */}
               <div className="flex items-center justify-between">
@@ -1419,28 +1605,56 @@ All changes have been saved to the database!`;
                     variant="outline" 
                     onClick={handleZoomIn}
                     disabled={zoomLevel >= 500}
-                    className="w-8 h-8 p-0"
+                    className="w-10 h-10 p-0"
                   >
-                    <ZoomIn className="w-3 h-3" />
+                    <ZoomIn className="w-4 h-4" />
                   </Button>
                   <Button 
                     size="sm" 
                     variant="outline" 
                     onClick={handleResetZoom}
-                    className="w-8 h-8 p-0"
+                    className="w-10 h-10 p-0"
                   >
-                    <RotateCcw className="w-3 h-3" />
+                    <RotateCcw className="w-4 h-4" />
                   </Button>
                   <Button 
                     size="sm" 
                     variant="outline" 
                     onClick={handleZoomOut}
                     disabled={zoomLevel <= 10}
-                    className="w-8 h-8 p-0"
+                    className="w-10 h-10 p-0"
                   >
-                    <ZoomOut className="w-3 h-3" />
+                    <ZoomOut className="w-4 h-4" />
                   </Button>
                 </div>
+              </div>
+              
+              {/* Mobile Quick Actions */}
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={fetchFloorPlan}
+                  disabled={loading}
+                  className="flex-1 h-10"
+                >
+                  {loading ? '⏳ Loading...' : '🔄 Refresh'}
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => {
+                    setFloorPlan({
+                      seats: localSeats,
+                      deskAreas: localDeskAreas,
+                      officeLayout: localOfficeLayout
+                    });
+                    setError('Using local data - Backend not available');
+                  }}
+                  className="flex-1 h-10"
+                >
+                  📱 Local Data
+                </Button>
               </div>
             </div>
           </Card>
@@ -1477,11 +1691,11 @@ All changes have been saved to the database!`;
 
       {/* Floor and Office Location Selectors */}
       <Card className="p-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Building:</label>
+        <div className={`flex ${isMobile ? 'flex-col' : 'flex-col sm:flex-row'} gap-4 items-start sm:items-center`}>
+          <div className={`flex ${isMobile ? 'flex-col w-full' : 'items-center gap-2'}`}>
+            <label className={`text-sm font-medium ${isMobile ? 'mb-2' : ''}`}>Building:</label>
             <select 
-              className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[120px]"
+              className={`px-3 py-2 border border-input rounded-md bg-background text-sm ${isMobile ? 'w-full h-12 text-base' : 'min-w-[120px]'}`}
               value={selectedBuilding}
               onChange={(e) => setSelectedBuilding(e.target.value)}
             >
@@ -1493,10 +1707,10 @@ All changes have been saved to the database!`;
               <option value="building-c">Building C</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Office Location:</label>
+          <div className={`flex ${isMobile ? 'flex-col w-full' : 'items-center gap-2'}`}>
+            <label className={`text-sm font-medium ${isMobile ? 'mb-2' : ''}`}>Office Location:</label>
             <select 
-              className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[150px]"
+              className={`px-3 py-2 border border-input rounded-md bg-background text-sm ${isMobile ? 'w-full h-12 text-base' : 'min-w-[150px]'}`}
               value={selectedOfficeLocation}
               onChange={(e) => setSelectedOfficeLocation(e.target.value)}
             >
@@ -1509,10 +1723,10 @@ All changes have been saved to the database!`;
               <option value="branch-west">West Branch</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Floor:</label>
+          <div className={`flex ${isMobile ? 'flex-col w-full' : 'items-center gap-2'}`}>
+            <label className={`text-sm font-medium ${isMobile ? 'mb-2' : ''}`}>Floor:</label>
             <select 
-              className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[120px]"
+              className={`px-3 py-2 border border-input rounded-md bg-background text-sm ${isMobile ? 'w-full h-12 text-base' : 'min-w-[120px]'}`}
               value={selectedFloor}
               onChange={(e) => setSelectedFloor(e.target.value)}
             >
@@ -1527,21 +1741,21 @@ All changes have been saved to the database!`;
               <option value="Floor1">Floor 1</option>
             </select>
           </div>
-          <div className="flex items-center gap-2">
-            <label className="text-sm font-medium">Date:</label>
+          <div className={`flex ${isMobile ? 'flex-col w-full' : 'items-center gap-2'}`}>
+            <label className={`text-sm font-medium ${isMobile ? 'mb-2' : ''}`}>Date:</label>
             <input
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-2 border border-input rounded-md bg-background text-sm min-w-[140px]"
+              className={`px-3 py-2 border border-input rounded-md bg-background text-sm ${isMobile ? 'w-full h-12 text-base' : 'min-w-[140px]'}`}
             />
           </div>
           <Button 
             onClick={fetchFloorPlan}
             disabled={!selectedBuilding || !selectedOfficeLocation || !selectedFloor || loading}
-            className="bg-blue-600 hover:bg-blue-700"
+            className={`bg-blue-600 hover:bg-blue-700 ${isMobile ? 'w-full h-12 text-base font-medium' : ''}`}
           >
-            {loading ? 'Loading...' : 'Load Floor Plan'}
+            {loading ? (isMobile ? 'Loading...' : 'Loading...') : (isMobile ? '📋 Load Floor Plan' : 'Load Floor Plan')}
           </Button>
         </div>
       </Card>
@@ -1682,6 +1896,21 @@ All changes have been saved to the database!`;
                         <ArrowRight className="w-3 h-3" />
                       </Button>
                     </div>
+                  </div>
+
+                  {/* Delete Controls */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Delete:</span>
+                    <Button 
+                      size="sm" 
+                      variant="destructive" 
+                      onClick={deleteSelectedSeats}
+                      disabled={selectedSeats.size === 0}
+                      className="w-8 h-8 p-0"
+                      title="Delete Selected Seats"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
                   </div>
 
                   {/* Layout Move Controls */}
@@ -2052,36 +2281,39 @@ All changes have been saved to the database!`;
         <div className="flex items-center justify-center p-8">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
-            <p>Loading floor plan...</p>
+            <p className={isMobile ? 'text-base' : ''}>Loading floor plan...</p>
+            {isMobile && (
+              <p className="text-sm text-muted-foreground mt-2">This may take a few moments on mobile</p>
+            )}
           </div>
         </div>
       )}
       
       {error && (
         <div className="flex items-center justify-center p-8">
-          <div className="text-center max-w-md">
+          <div className={`text-center ${isMobile ? 'w-full max-w-sm' : 'max-w-md'}`}>
             <div className="text-amber-600 mb-2">
               <svg className="w-8 h-8 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
               </svg>
             </div>
-            <p className="text-sm text-muted-foreground mb-2">{error}</p>
-            {error.includes('Backend not available') && (
-              <p className="text-xs text-muted-foreground mb-3">
+            <p className={`text-muted-foreground mb-2 ${isMobile ? 'text-base' : 'text-sm'}`}>{error}</p>
+            {error.includes('Using local data') && (
+              <p className={`text-muted-foreground mb-3 ${isMobile ? 'text-sm' : 'text-xs'}`}>
                 The floor plan is now loaded with local data. You can still interact with it normally.
               </p>
             )}
-            {!error.includes('Backend not available') && (
-              <div className="flex gap-2 justify-center mt-3">
+            {!error.includes('Using local data') && (
+              <div className={`flex ${isMobile ? 'flex-col' : 'gap-2'} justify-center mt-3 space-y-2`}>
                 <Button 
-                  size="sm"
+                  size={isMobile ? 'default' : 'sm'}
                   onClick={fetchFloorPlan}
-                  className="bg-blue-600 hover:bg-blue-700"
+                  className={`bg-blue-600 hover:bg-blue-700 ${isMobile ? 'w-full h-12 text-base' : ''}`}
                 >
-                  Retry
+                  {isMobile ? '🔄 Retry Loading' : 'Retry'}
                 </Button>
                 <Button 
-                  size="sm"
+                  size={isMobile ? 'default' : 'sm'}
                   variant="outline"
                   onClick={() => {
                     setFloorPlan({
@@ -2091,8 +2323,9 @@ All changes have been saved to the database!`;
                     });
                     setError('Using local data - Backend not available');
                   }}
+                  className={isMobile ? 'w-full h-12 text-base' : ''}
                 >
-                  Use Local Data
+                  {isMobile ? '📱 Use Local Data' : 'Use Local Data'}
                 </Button>
               </div>
             )}
@@ -2102,14 +2335,16 @@ All changes have been saved to the database!`;
       
       {!floorPlan && !loading && !error && (
         <div className="flex items-center justify-center p-8">
-          <div className="text-center">
-            <p className="text-gray-600 mb-4">Please select Building, Office Location, and Floor to load the floor plan</p>
+          <div className={`text-center ${isMobile ? 'w-full max-w-sm' : ''}`}>
+            <p className={`text-gray-600 mb-4 ${isMobile ? 'text-base' : ''}`}>
+              {isMobile ? '📱 Please select Building, Office Location, and Floor to load the floor plan' : 'Please select Building, Office Location, and Floor to load the floor plan'}
+            </p>
             <Button 
               onClick={fetchFloorPlan}
               disabled={!selectedBuilding || !selectedOfficeLocation || !selectedFloor}
-              className="bg-blue-600 hover:bg-blue-700"
+              className={`bg-blue-600 hover:bg-blue-700 ${isMobile ? 'w-full h-12 text-base font-medium' : ''}`}
             >
-              Load Floor Plan
+              {isMobile ? '📋 Load Floor Plan' : 'Load Floor Plan'}
             </Button>
           </div>
         </div>
@@ -2471,6 +2706,8 @@ All changes have been saved to the database!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
+                        : seat.status === 'occupied'
+                        ? 'hsl(var(--seat-occupied))'
                         : 'hsl(var(--seat-available))'
                     }
                     stroke={
@@ -2495,6 +2732,8 @@ All changes have been saved to the database!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
+                        : seat.status === 'occupied'
+                        ? 'hsl(var(--seat-occupied))'
                         : 'hsl(var(--seat-available))'
                     }
                     fillOpacity="0.7"
@@ -2555,6 +2794,8 @@ All changes have been saved to the database!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
+                        : seat.status === 'occupied'
+                        ? 'hsl(var(--seat-occupied))'
                         : 'hsl(var(--seat-available))'
                     }
                     stroke={
@@ -2579,6 +2820,8 @@ All changes have been saved to the database!`;
                     fill={
                       selectedSeats.has(seat.id) 
                         ? 'hsl(var(--seat-selected))'
+                        : seat.status === 'occupied'
+                        ? 'hsl(var(--seat-occupied))'
                         : 'hsl(var(--seat-available))'
                     }
                     fillOpacity="0.7"
@@ -2895,20 +3138,6 @@ All changes have been saved to the database!`;
         </Card>
       )}
 
-      {/* Mobile Floating Action Button */}
-      {isMobile && (
-        <div className="fixed bottom-4 right-4 z-50">
-          <Button
-            size="lg"
-            variant="default"
-            onClick={() => setShowMobileControls(!showMobileControls)}
-            className="rounded-full w-14 h-14 shadow-lg bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700"
-          >
-            {showMobileControls ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </Button>
-        </div>
-      )}
-
       {/* Floating Zoom Indicator */}
       {showZoomIndicator && (
         <div style={{
@@ -2954,6 +3183,39 @@ All changes have been saved to the database!`;
                 <div className="mb-2 text-sm sm:text-base text-muted-foreground">Equipment: <span className="font-medium">{bookingSeat.equipment.join(', ')}</span></div>
               )}
             </div>
+            
+            {/* Time Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Booking Time</label>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="block text-xs mb-1">Start Time</label>
+                  <input
+                    type="time"
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                    min="06:00"
+                    max="22:00"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs mb-1">End Time</label>
+                  <input
+                    type="time"
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-md bg-background text-sm"
+                    min="06:00"
+                    max="22:00"
+                  />
+                </div>
+              </div>
+              {startTime >= endTime && (
+                <p className="text-xs text-red-500 mt-1">End time must be after start time</p>
+              )}
+            </div>
+            
             {/* Recurrence Section */}
             <div className="mb-4">
               <label className="block text-sm font-medium mb-1">Recurrence</label>
@@ -3007,7 +3269,12 @@ All changes have been saved to the database!`;
             <Button 
               variant="default" 
               className="w-full" 
-              disabled={(recurrenceType === 'daily' || recurrenceType === 'weekly') && !recurrenceEndDate}
+              disabled={
+                startTime >= endTime || 
+                (recurrenceType === 'daily' && !recurrenceEndDate) ||
+                (recurrenceType === 'weekly' && !recurrenceEndDate) ||
+                (recurrenceType === 'custom' && customDates.length === 0)
+              }
               onClick={handleConfirmBooking}
             >
               Confirm Booking
@@ -3015,6 +3282,8 @@ All changes have been saved to the database!`;
           </div>
         </div>
       )}
+
+
     </div>
   );
 };

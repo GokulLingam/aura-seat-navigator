@@ -5,7 +5,7 @@ export interface Seat {
   id: string;
   x: number;
   y: number;
-  status: 'available' | 'occupied' | 'selected';
+  status: 'available' | 'occupied' | 'reserved' | 'maintenance' | 'selected';
   type: 'desk' | 'meeting-room' | 'phone-booth';
   equipment?: string[];
   rotation?: number;

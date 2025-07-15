@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Floor Plan Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 16px;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #333;
+        }
+        
+        .form-group select,
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+        }
+        
+        .form-group select:focus,
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-bottom: 16px;
+        }
+        
+        .btn:hover {
+            background: #0056b3;
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+        }
+        
+        .btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .status {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        
+        .status.loading {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #bbdefb;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            color: #c62828;
+            border: 1px solid #ffcdd2;
+        }
+        
+        .status.success {
+            background: #e8f5e8;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+        
+        .debug {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 16px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #495057;
+        }
+        
+        .floor-plan {
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            height: 300px;
+            background: #f8f9fa;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-top: 16px;
+            position: relative;
+        }
+        
+        .seat {
+            width: 20px;
+            height: 20px;
+            background: #28a745;
+            border: 2px solid #1e7e34;
+            border-radius: 4px;
+            margin: 4px;
+            display: inline-block;
+            cursor: pointer;
+        }
+        
+        .seat:hover {
+            background: #20c997;
+        }
+        
+        .seat.occupied {
+            background: #dc3545;
+            border-color: #c82333;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .controls button {
+            flex: 1;
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .controls button:hover {
+            background: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📱 Mobile Floor Plan Test</h1>
+            <p>Test floor plan loading on mobile devices</p>
+        </div>
+        
+        <div class="form-group">
+            <label for="building">Building:</label>
+            <select id="building">
+                <option value="">Select Building</option>
+                <option value="campus20">Campus 20</option>
+                <option value="campus30" selected>Campus 30</option>
+                <option value="building-a">Building A</option>
+                <option value="building-b">Building B</option>
+                <option value="building-c">Building C</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="office">Office Location:</label>
+            <select id="office">
+                <option value="">Select Office</option>
+                <option value="IN10" selected>IN10</option>
+                <option value="main-office">Main Office</option>
+                <option value="branch-north">North Branch</option>
+                <option value="branch-south">South Branch</option>
+                <option value="branch-east">East Branch</option>
+                <option value="branch-west">West Branch</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label for="floor">Floor:</label>
+            <select id="floor">
+                <option value="">Select Floor</option>
+                <option value="Floor8" selected>Floor 8</option>
+                <option value="Floor7">Floor 7</option>
+                <option value="Floor6">Floor 6</option>
+                <option value="Floor5">Floor 5</option>
+                <option value="Floor4">Floor 4</option>
+                <option value="Floor3">Floor 3</option>
+                <option value="Floor2">Floor 2</option>
+                <option value="Floor1">Floor 1</option>
+            </select>
+        </div>
+        
+        <button class="btn" onclick="loadFloorPlan()">📋 Load Floor Plan</button>
+        <button class="btn btn-secondary" onclick="loadLocalData()">📱 Use Local Data</button>
+        
+        <div id="status" class="status" style="display: none;"></div>
+        
+        <div class="floor-plan" id="floorPlan">
+            <div style="text-align: center; color: #666;">
+                <p>Select options and click "Load Floor Plan"</p>
+                <p style="font-size: 12px; margin-top: 8px;">Or click "Use Local Data" for testing</p>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <button onclick="showDebug()">🔍 Debug Info</button>
+            <button onclick="clearStatus()">🗑️ Clear</button>
+            <button onclick="testTouch()">👆 Test Touch</button>
+        </div>
+        
+        <div id="debug" class="debug" style="display: none;"></div>
+    </div>
+
+    <script>
+        let loading = false;
+        
+        function showStatus(message, type = 'info') {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+        }
+        
+        function clearStatus() {
+            document.getElementById('status').style.display = 'none';
+            document.getElementById('debug').style.display = 'none';
+        }
+        
+        function showDebug() {
+            const debug = document.getElementById('debug');
+            const info = {
+                userAgent: navigator.userAgent,
+                screenSize: `${window.innerWidth}x${window.innerHeight}`,
+                devicePixelRatio: window.devicePixelRatio,
+                online: navigator.onLine,
+                location: window.location.href,
+                timestamp: new Date().toISOString()
+            };
+            
+            debug.innerHTML = '<strong>Debug Information:</strong><br>' + 
+                Object.entries(info).map(([key, value]) => `${key}: ${value}`).join('<br>');
+            debug.style.display = 'block';
+        }
+        
+        function testTouch() {
+            showStatus('👆 Touch test: Tap on seats to test interaction', 'success');
+        }
+        
+        async function loadFloorPlan() {
+            const building = document.getElementById('building').value;
+            const office = document.getElementById('office').value;
+            const floor = document.getElementById('floor').value;
+            
+            if (!building || !office || !floor) {
+                showStatus('❌ Please select all options', 'error');
+                return;
+            }
+            
+            loading = true;
+            showStatus('⏳ Loading floor plan...', 'loading');
+            
+            try {
+                const params = new URLSearchParams({ building, office, floor });
+                const endpoints = [
+                    `http://localhost:3001/api/floorplan?${params}`,
+                    `http://127.0.0.1:3001/api/floorplan?${params}`,
+                    `/api/floorplan?${params}`
+                ];
+                
+                let response = null;
+                let lastError = null;
+                
+                for (const endpoint of endpoints) {
+                    try {
+                        console.log('Trying endpoint:', endpoint);
+                        response = await fetch(endpoint, {
+                            headers: { 'Accept': 'application/json' },
+                            signal: AbortSignal.timeout(10000)
+                        });
+                        
+                        if (response.ok) {
+                            break;
+                        }
+                    } catch (err) {
+                        console.log('Failed:', endpoint, err);
+                        lastError = err;
+                        continue;
+                    }
+                }
+                
+                if (!response || !response.ok) {
+                    throw lastError || new Error('All endpoints failed');
+                }
+                
+                const data = await response.json();
+                displayFloorPlan(data);
+                showStatus('✅ Floor plan loaded successfully!', 'success');
+                
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`❌ Failed to load: ${error.message}`, 'error');
+            } finally {
+                loading = false;
+            }
+        }
+        
+        function loadLocalData() {
+            const localData = {
+                seats: [
+                    { id: 'A1', x: 10, y: 10, status: 'available', type: 'desk' },
+                    { id: 'A2', x: 15, y: 10, status: 'occupied', type: 'desk' },
+                    { id: 'A3', x: 20, y: 10, status: 'available', type: 'desk' },
+                    { id: 'B1', x: 10, y: 15, status: 'available', type: 'desk' },
+                    { id: 'B2', x: 15, y: 15, status: 'available', type: 'desk' },
+                    { id: 'B3', x: 20, y: 15, status: 'occupied', type: 'desk' }
+                ],
+                deskAreas: [
+                    { id: 'area1', x: 5, y: 5, width: 30, height: 25, name: 'Work Area A' }
+                ],
+                officeLayout: { width: 40, height: 30, x: 0, y: 0 }
+            };
+            
+            displayFloorPlan(localData);
+            showStatus('📱 Local data loaded successfully!', 'success');
+        }
+        
+        function displayFloorPlan(data) {
+            const container = document.getElementById('floorPlan');
+            container.innerHTML = '';
+            
+            if (data.seats && data.seats.length > 0) {
+                data.seats.forEach(seat => {
+                    const seatElement = document.createElement('div');
+                    seatElement.className = `seat ${seat.status === 'occupied' ? 'occupied' : ''}`;
+                    seatElement.title = `Seat ${seat.id} - ${seat.status}`;
+                    seatElement.onclick = () => {
+                        showStatus(`👆 Selected seat ${seat.id}`, 'success');
+                    };
+                    container.appendChild(seatElement);
+                });
+            } else {
+                container.innerHTML = '<p style="color: #666;">No seats found in data</p>';
+            }
+        }
+        
+        // Auto-load local data on mobile for testing
+        if (window.innerWidth < 768) {
+            console.log('Mobile device detected, auto-loading local data');
+            setTimeout(() => loadLocalData(), 1000);
+        }
+    </script>
+</body>
+</html> 

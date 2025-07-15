@@ -43,7 +43,7 @@ All colors MUST be HSL.
 
     /* Custom semantic tokens for office booking */
     --seat-available: 120 50% 85%;
-    --seat-occupied: 0 50% 85%;
+    --seat-occupied: 0 84% 60%;
     --seat-selected: 45 85% 65%;
     --resource-available: 200 50% 85%;
     --resource-booked: 280 50% 85%;
