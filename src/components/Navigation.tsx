@@ -8,6 +8,7 @@ import {
   MapPin, 
   Settings, 
   User, 
+  Users,
   Bell,
   Menu,
   X,
@@ -31,7 +32,8 @@ const Navigation = () => {
   ];
 
   const adminNavigationItems = [
-    { path: '/floor-plan', label: 'Floor Plan Management', icon: MapPin, adminOnly: true },
+    { path: '/admin/users', label: 'Manage Users', icon: Users, adminOnly: true },
+
   ];
 
   const isActivePath = (path: string) => {
@@ -59,7 +61,25 @@ const Navigation = () => {
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = isActivePath(item.path);
-              const isAdminItem = item.path === '/floor-plan' && user?.role === 'admin';
+              
+              return (
+                <Link key={item.path} to={item.path}>
+                  <Button
+                    variant={isActive ? 'default' : 'ghost'}
+                    size="sm"
+                    className="flex items-center space-x-2"
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{item.label}</span>
+                  </Button>
+                </Link>
+              );
+            })}
+            
+            {/* Admin Navigation Items */}
+            {user?.role === 'ADMIN' && adminNavigationItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = isActivePath(item.path);
               
               return (
                 <Link key={item.path} to={item.path}>
@@ -70,11 +90,9 @@ const Navigation = () => {
                   >
                     <Icon className="w-4 h-4" />
                     <span>{item.label}</span>
-                    {isAdminItem && (
-                      <Badge variant="secondary" className="absolute -top-1 -right-1 w-4 h-4 p-0 text-xs bg-purple-100 text-purple-800">
-                        👑
-                      </Badge>
-                    )}
+                    <Badge variant="secondary" className="absolute -top-1 -right-1 w-4 h-4 p-0 text-xs bg-purple-100 text-purple-800">
+                      👑
+                    </Badge>
                   </Button>
                 </Link>
               );
@@ -106,7 +124,7 @@ const Navigation = () => {
           <Button variant="outline" size="sm" className="flex items-center space-x-2">
             <User className="w-4 h-4" />
               <span>{user?.name || 'User'}</span>
-              {user?.role === 'admin' && (
+              {user?.role === 'ADMIN' && (
                 <Badge variant="secondary" className="text-xs">Admin</Badge>
               )}
             </Button>
@@ -147,7 +165,7 @@ const Navigation = () => {
               {navigationItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = isActivePath(item.path);
-                const isAdminItem = item.path === '/floor-plan' && user?.role === 'admin';
+                const isAdminItem = item.path === '/floor-plan' && user?.role === 'ADMIN';
                 
                 return (
                   <Link 
@@ -191,7 +209,7 @@ const Navigation = () => {
                 <Button variant="ghost" size="sm" className="w-full justify-start space-x-2">
                   <User className="w-4 h-4" />
                     <span>{user?.name || 'Profile'}</span>
-                    {user?.role === 'admin' && (
+                    {user?.role === 'ADMIN' && (
                       <Badge variant="secondary" className="text-xs ml-auto">Admin</Badge>
                     )}
                   </Button>

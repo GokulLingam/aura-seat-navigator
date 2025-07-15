@@ -1,9 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Calendar, Clock, MapPin, Users, Monitor, Coffee, Phone, Settings, UserPlus, Shield } from 'lucide-react';
+import { Calendar, Clock, MapPin, Users, Monitor, Coffee, Phone, Settings, UserPlus, Shield, Loader2 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import apiService from '@/services/apiService';
 
 interface Booking {
   id: string;
@@ -16,52 +17,74 @@ interface Booking {
   location: string;
 }
 
+interface DashboardData {
+  today: { bookings: Booking[]; count: number };
+  upcoming: { bookings: Booking[]; count: number };
+  history: { bookings: Booking[]; count: number };
+  summary: { totalBookings: number; todayCount: number; upcomingCount: number; historyCount: number };
+}
+
 const BookingDashboard = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<'today' | 'upcoming' | 'history'>('today');
+  const [dashboardData, setDashboardData] = useState<DashboardData>({
+    today: { bookings: [], count: 0 },
+    upcoming: { bookings: [], count: 0 },
+    history: { bookings: [], count: 0 },
+    summary: { totalBookings: 0, todayCount: 0, upcomingCount: 0, historyCount: 0 }
+  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const bookings: Booking[] = [
-    {
-      id: 'B001',
-      type: 'seat',
-      name: 'Desk D5',
-      date: '2024-01-15',
-      startTime: '09:00',
-      endTime: '17:00',
-      status: 'confirmed',
-      location: 'Floor 3, Open Workspace'
-    },
-    {
-      id: 'B002',
-      type: 'meeting-room',
-      name: 'Conference Room A',
-      date: '2024-01-15',
-      startTime: '14:00',
-      endTime: '15:30',
-      status: 'confirmed',
-      location: 'Floor 3, Meeting Area'
-    },
-    {
-      id: 'B003',
-      type: 'seat',
-      name: 'Phone Booth PB1',
-      date: '2024-01-16',
-      startTime: '10:00',
-      endTime: '11:00',
-      status: 'pending',
-      location: 'Floor 3, Quiet Zone'
-    },
-    {
-      id: 'B004',
-      type: 'meeting-room',
-      name: 'Boardroom',
-      date: '2024-01-16',
-      startTime: '16:00',
-      endTime: '17:00',
-      status: 'confirmed',
-      location: 'Floor 3, Executive Area'
-    }
-  ];
+  // Fetch user bookings from API
+  useEffect(() => {
+    const fetchUserBookings = async () => {
+      if (!user?.id) return;
+      
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await apiService.getUserBookingsForDashboard(user.id);
+        
+        // Transform backend data to frontend format
+        const transformBooking = (booking: any): Booking => ({
+          id: booking.id,
+          type: booking.bookType?.toLowerCase() || 'seat',
+          name: booking.subType || 'Unknown',
+          date: booking.date,
+          startTime: booking.startTime,
+          endTime: booking.endTime,
+          status: booking.status,
+          location: `${booking.officeLocation || ''} ${booking.building || ''} ${booking.floor || ''}`.trim()
+        });
+
+        const transformedData: DashboardData = {
+          today: {
+            bookings: data.today.bookings.map(transformBooking),
+            count: data.today.count
+          },
+          upcoming: {
+            bookings: data.upcoming.bookings.map(transformBooking),
+            count: data.upcoming.count
+          },
+          history: {
+            bookings: data.history.bookings.map(transformBooking),
+            count: data.history.count
+          },
+          summary: data.summary
+        };
+
+        setDashboardData(transformedData);
+      } catch (err) {
+        console.error('Failed to fetch user bookings:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load bookings');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserBookings();
+  }, [user?.id]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -81,27 +104,60 @@ const BookingDashboard = () => {
     }
   };
 
-  const filteredBookings = bookings.filter(booking => {
-    const today = new Date().toISOString().split('T')[0];
-    const bookingDate = booking.date;
-    
+  const getCurrentBookings = () => {
     switch (activeTab) {
       case 'today':
-        return bookingDate === today;
+        return dashboardData.today.bookings;
       case 'upcoming':
-        return bookingDate > today;
+        return dashboardData.upcoming.bookings;
       case 'history':
-        return bookingDate < today;
+        return dashboardData.history.bookings;
       default:
-        return true;
+        return [];
     }
-  });
+  };
 
-  const stats = {
-    totalBookings: bookings.length,
-    todayBookings: bookings.filter(b => b.date === new Date().toISOString().split('T')[0]).length,
-    upcomingBookings: bookings.filter(b => b.date > new Date().toISOString().split('T')[0]).length,
-    confirmedBookings: bookings.filter(b => b.status === 'confirmed').length
+  const currentBookings = getCurrentBookings();
+
+  const handleCancelBooking = async (bookingId: string) => {
+    try {
+      await apiService.cancelUserBooking(bookingId);
+      // Refresh the data after cancellation
+      const data = await apiService.getUserBookingsForDashboard(user?.id || '');
+      
+      // Transform and update the data
+      const transformBooking = (booking: any): Booking => ({
+        id: booking.id,
+        type: booking.bookType?.toLowerCase() || 'seat',
+        name: booking.subType || 'Unknown',
+        date: booking.date,
+        startTime: booking.startTime,
+        endTime: booking.endTime,
+        status: booking.status,
+        location: `${booking.officeLocation || ''} ${booking.building || ''} ${booking.floor || ''}`.trim()
+      });
+
+      const transformedData: DashboardData = {
+        today: {
+          bookings: data.today.bookings.map(transformBooking),
+          count: data.today.count
+        },
+        upcoming: {
+          bookings: data.upcoming.bookings.map(transformBooking),
+          count: data.upcoming.count
+        },
+        history: {
+          bookings: data.history.bookings.map(transformBooking),
+          count: data.history.count
+        },
+        summary: data.summary
+      };
+
+      setDashboardData(transformedData);
+    } catch (err) {
+      console.error('Failed to cancel booking:', err);
+      setError(err instanceof Error ? err.message : 'Failed to cancel booking');
+    }
   };
 
   return (
@@ -110,12 +166,12 @@ const BookingDashboard = () => {
       <div>
         <div className="flex items-center gap-3">
           <h1 className="text-3xl font-bold">Welcome back, {user?.name || 'User'}!</h1>
-          {user?.role === 'admin' && (
+          {user?.role === 'ADMIN' && (
             <Badge variant="secondary" className="text-sm">Administrator</Badge>
           )}
         </div>
         <p className="text-muted-foreground">
-          {user?.role === 'admin' 
+          {user?.role === 'ADMIN' 
             ? 'Manage workspace reservations and system settings' 
             : 'Manage your workspace reservations'
           }
@@ -139,13 +195,23 @@ const BookingDashboard = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
-            {filteredBookings.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                No bookings found for {activeTab}
-              </div>
-            ) : (
-              filteredBookings.map((booking) => (
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span className="ml-2">Loading bookings...</span>
+            </div>
+          ) : error ? (
+            <div className="text-center py-8 text-red-600">
+              {error}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {currentBookings.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No bookings found for {activeTab}
+                </div>
+              ) : (
+                currentBookings.map((booking) => (
                 <div
                   key={booking.id}
                   className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
@@ -176,19 +242,25 @@ const BookingDashboard = () => {
                     <Badge className={getStatusColor(booking.status)}>
                       {booking.status}
                     </Badge>
-                    {user?.role === 'admin' && (
+                    {user?.role === 'ADMIN' && (
                     <Button variant="outline" size="sm">
                       Modify
                     </Button>
                     )}
-                    <Button variant="destructive" size="sm">
-                      Cancel
+                    <Button 
+                      variant="destructive" 
+                      size="sm"
+                      onClick={() => handleCancelBooking(booking.id)}
+                      disabled={booking.status === 'cancelled'}
+                    >
+                      {booking.status === 'cancelled' ? 'Cancelled' : 'Cancel'}
                     </Button>
                   </div>
-                </div>
-              ))
-            )}
-          </div>
+                                  </div>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
       {/* Stats Cards */}
@@ -199,7 +271,7 @@ const BookingDashboard = () => {
             <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBookings}</div>
+            <div className="text-2xl font-bold">{dashboardData.summary.totalBookings}</div>
             <p className="text-xs text-muted-foreground">All time bookings</p>
           </CardContent>
         </Card>
@@ -210,7 +282,7 @@ const BookingDashboard = () => {
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.todayBookings}</div>
+            <div className="text-2xl font-bold">{dashboardData.summary.todayCount}</div>
             <p className="text-xs text-muted-foreground">Active reservations</p>
           </CardContent>
         </Card>
@@ -221,25 +293,25 @@ const BookingDashboard = () => {
             <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.upcomingBookings}</div>
+            <div className="text-2xl font-bold">{dashboardData.summary.upcomingCount}</div>
             <p className="text-xs text-muted-foreground">Future bookings</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Confirmed</CardTitle>
+            <CardTitle className="text-sm font-medium">History</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.confirmedBookings}</div>
-            <p className="text-xs text-muted-foreground">Confirmed bookings</p>
+            <div className="text-2xl font-bold">{dashboardData.summary.historyCount}</div>
+            <p className="text-xs text-muted-foreground">Past bookings</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Admin Section - Only visible to admin users */}
-      {user?.role === 'admin' && (
+      {user?.role === 'ADMIN' && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

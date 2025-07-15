@@ -1505,7 +1505,7 @@ Your booking has been confirmed and saved to the database!`;
           <div>
             <div className="flex items-center gap-2 mb-1">
               <h2 className="text-lg md:text-2xl font-bold">Office Floor Plan</h2>
-              {user?.role === 'admin' && (
+              {user?.role === 'ADMIN' && (
                 <Badge variant="secondary" className="bg-purple-100 text-purple-800 border-purple-200">
                   👑 Admin
                 </Badge>
@@ -1522,7 +1522,7 @@ Your booking has been confirmed and saved to the database!`;
 
           
           {/* Admin Edit Mode Checkbox - Always Visible */}
-          {user?.role === 'admin' && (
+          {user?.role === 'ADMIN' && (
             <div className="flex items-center space-x-2 p-3 bg-purple-50 border-2 border-purple-300 rounded-lg shadow-sm">
               <Checkbox
                 id="edit-mode-admin"
@@ -1565,7 +1565,7 @@ Your booking has been confirmed and saved to the database!`;
           <Card className="p-4 border-accent bg-accent/5">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                {user?.role === 'admin' && (
+                {user?.role === 'ADMIN' && (
                   <div className="flex items-center space-x-2 p-2 bg-purple-50 border border-purple-200 rounded-lg">
                     <Checkbox
                       id="edit-mode-mobile"

@@ -270,9 +270,123 @@ class ApiService {
     });
   }
 
+  async cancelUserBooking(bookingId: string): Promise<any> {
+    const response = await this.request(`/bookings/${bookingId}`, {
+      method: 'DELETE',
+    });
+    return response.data;
+  }
+
+  // User Management Methods (Admin Only)
+  async getAllUsers(): Promise<any[]> {
+    const response = await this.request<{ users: any[] }>('/admin/users');
+    return response.data?.users || [];
+  }
+
+  async getActiveUsers(): Promise<any[]> {
+    const response = await this.request<{ users: any[] }>('/admin/users/active');
+    return response.data?.users || [];
+  }
+
+  async getUserById(userId: string): Promise<any> {
+    const response = await this.request<{ user: any }>(`/admin/users/${userId}`);
+    return response.data?.user;
+  }
+
+  async createUser(userData: {
+    name: string;
+    email: string;
+    password: string;
+    role: string;
+    department?: string;
+    employeeId?: string;
+    avatar?: string;
+    permissions?: string[];
+    isActive?: boolean;
+  }): Promise<any> {
+    const response = await this.request<{ user: any }>('/admin/users', {
+      method: 'POST',
+      body: JSON.stringify(userData),
+    });
+    return response.data?.user;
+  }
+
+  async updateUser(userId: string, userData: {
+    name?: string;
+    email?: string;
+    password?: string;
+    role?: string;
+    department?: string;
+    employeeId?: string;
+    avatar?: string;
+    permissions?: string[];
+    isActive?: boolean;
+  }): Promise<any> {
+    const response = await this.request<{ user: any }>(`/admin/users/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify(userData),
+    });
+    return response.data?.user;
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await this.request(`/admin/users/${userId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async deactivateUser(userId: string): Promise<any> {
+    const response = await this.request<{ user: any }>(`/admin/users/${userId}/deactivate`, {
+      method: 'PATCH',
+    });
+    return response.data?.user;
+  }
+
+  async activateUser(userId: string): Promise<any> {
+    const response = await this.request<{ user: any }>(`/admin/users/${userId}/activate`, {
+      method: 'PATCH',
+    });
+    return response.data?.user;
+  }
+
+  async getUsersByRole(role: string): Promise<any[]> {
+    const response = await this.request<{ users: any[] }>(`/admin/users/role/${role}`);
+    return response.data?.users || [];
+  }
+
+  async getUsersByDepartment(department: string): Promise<any[]> {
+    const response = await this.request<{ users: any[] }>(`/admin/users/department/${department}`);
+    return response.data?.users || [];
+  }
+
+  async getAvailableRoles(): Promise<string[]> {
+    const response = await this.request<{ roles: string[] }>('/admin/users/roles');
+    return response.data?.roles || [];
+  }
+
   async getMyBookings(): Promise<any[]> {
     const response = await this.request<any[]>('/bookings/my');
     return response.data || [];
+  }
+
+  async getUserBookingsForDashboard(userId: string): Promise<{
+    today: { bookings: any[]; count: number };
+    upcoming: { bookings: any[]; count: number };
+    history: { bookings: any[]; count: number };
+    summary: { totalBookings: number; todayCount: number; upcomingCount: number; historyCount: number };
+  }> {
+    const response = await this.request<{
+      today: { bookings: any[]; count: number };
+      upcoming: { bookings: any[]; count: number };
+      history: { bookings: any[]; count: number };
+      summary: { totalBookings: number; todayCount: number; upcomingCount: number; historyCount: number };
+    }>(`/bookings/user/${userId}/dashboard`);
+    return response.data || {
+      today: { bookings: [], count: 0 },
+      upcoming: { bookings: [], count: 0 },
+      history: { bookings: [], count: 0 },
+      summary: { totalBookings: 0, todayCount: 0, upcomingCount: 0, historyCount: 0 }
+    };
   }
 
   // Resource management methods
@@ -326,40 +440,7 @@ class ApiService {
     });
   }
 
-  // User management methods (admin only)
-  async getUsers(): Promise<User[]> {
-    const response = await this.request<User[]>('/users');
-    return response.data || [];
-  }
 
-  async createUser(userData: {
-    email: string;
-    password: string;
-    name: string;
-    role: string;
-    department?: string;
-    employeeId?: string;
-  }): Promise<User> {
-    const response = await this.request<User>('/users', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-    return response.data!;
-  }
-
-  async updateUser(userId: string, userData: Partial<User>): Promise<User> {
-    const response = await this.request<User>(`/users/${userId}`, {
-      method: 'PUT',
-      body: JSON.stringify(userData),
-    });
-    return response.data!;
-  }
-
-  async deleteUser(userId: string): Promise<void> {
-    await this.request(`/users/${userId}`, {
-      method: 'DELETE',
-    });
-  }
 
   // Utility methods
   isAuthenticated(): boolean {
@@ -405,7 +486,7 @@ class ApiService {
         id: '1',
         email: 'admin@upsreserve.com',
         name: 'Admin User',
-        role: 'admin',
+        role: 'ADMIN',
         department: 'IT',
         employeeId: 'EMP001',
         permissions: ['seat:read', 'seat:write', 'seat:delete', 'user:read', 'user:write', 'user:delete', 'floor:read', 'floor:write', 'floor:delete', 'booking:read', 'booking:write', 'booking:delete', 'admin:all'],

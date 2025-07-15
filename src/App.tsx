@@ -13,6 +13,7 @@ import ResourcesPage from "@/pages/ResourcesPage";
 import ApiDebugPage from "@/pages/ApiDebugPage";
 import NotFound from "@/pages/NotFound";
 import LoginForm from "@/components/LoginForm";
+import UserManagement from "@/components/UserManagement";
 
 const queryClient = new QueryClient();
 
@@ -117,6 +118,14 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <ResourcesPage />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/admin/users" element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <UserManagement />
                     </AppLayout>
                   </ProtectedRoute>
                 } />

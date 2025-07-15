@@ -5,7 +5,7 @@ import { Loader2 } from 'lucide-react';
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  requiredRole?: 'admin' | 'manager' | 'employee' | 'guest';
+  requiredRole?: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'GUEST';
   requiredPermissions?: string[];
   fallback?: React.ReactNode;
   showLogin?: boolean;

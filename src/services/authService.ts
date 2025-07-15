@@ -5,7 +5,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'admin' | 'manager' | 'employee' | 'guest';
+  role: 'ADMIN' | 'MANAGER' | 'EMPLOYEE' | 'GUEST';
   department?: string;
   employeeId?: string;
   avatar?: string;
@@ -404,19 +404,19 @@ class AuthService {
   }
 
   hasAnyRole(roles: User['role'][]): boolean {
-    return roles.includes(this.authState.user?.role || 'guest');
+    return roles.includes(this.authState.user?.role || 'GUEST');
   }
 
   isAdmin(): boolean {
-    return this.hasRole('admin');
+    return this.hasRole('ADMIN');
   }
 
   isManager(): boolean {
-    return this.hasAnyRole(['admin', 'manager']);
+    return this.hasAnyRole(['ADMIN', 'MANAGER']);
   }
 
   isEmployee(): boolean {
-    return this.hasAnyRole(['admin', 'manager', 'employee']);
+    return this.hasAnyRole(['ADMIN', 'MANAGER', 'EMPLOYEE']);
   }
 
   // Getters

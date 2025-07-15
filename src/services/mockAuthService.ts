@@ -9,7 +9,7 @@ const MOCK_USERS: Record<string, User> = {
     id: 'user_admin_001',
     email: 'admin@upsreserve.com',
     name: 'Admin User',
-    role: 'admin',
+    role: 'ADMIN',
     department: 'IT',
     employeeId: 'EMP001',
     avatar: '',
@@ -296,7 +296,7 @@ export const mockAuthAPI = {
 // Helper function to get permissions for a role
 function getPermissionsForRole(role: User['role']): string[] {
   switch (role) {
-    case 'admin':
+    case 'ADMIN':
       return [
         'seat:read',
         'seat:write',
