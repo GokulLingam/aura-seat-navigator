@@ -1,5 +1,5 @@
 // Floor Plan Booking System API Service
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api';
 
 interface ApiResponse<T = any> {
   success: boolean;
@@ -178,67 +178,8 @@ class FloorPlanApiService {
       return data;
     } catch (error) {
       console.error('API request failed:', error);
-      // For development, you can uncomment the line below to use mock data
-      return this.getMockResponse<T>(endpoint, options);
-      // throw error;
+      throw error;
     }
-  }
-
-  // Mock response method for development
-  private async getMockResponse<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const { mockFloorPlanApiService } = await import('./mockFloorPlanData');
-    
-    // Map API endpoints to mock methods
-    if (endpoint === '/buildings' && options.method !== 'POST' && options.method !== 'PUT' && options.method !== 'DELETE') {
-      const data = await mockFloorPlanApiService.getBuildings();
-      return { success: true, data: data as T };
-    }
-    
-    if (endpoint.startsWith('/floors') && !endpoint.includes('/layout') && options.method !== 'POST' && options.method !== 'PUT' && options.method !== 'DELETE') {
-      const params = new URLSearchParams(endpoint.split('?')[1]);
-      const building_id = params.get('building_id') || undefined;
-      const active = params.get('active') ? params.get('active') === 'true' : undefined;
-      const data = await mockFloorPlanApiService.getFloors({ building_id, active });
-      return { success: true, data: data as T };
-    }
-    
-    if (endpoint.startsWith('/floors/') && endpoint.includes('/layout') && options.method !== 'PUT') {
-      const floorId = endpoint.split('/')[2];
-      const data = await mockFloorPlanApiService.getFloorLayout(floorId);
-      return { success: true, data: data as T };
-    }
-    
-    if (endpoint === '/desks' && options.method !== 'POST' && options.method !== 'PUT' && options.method !== 'DELETE') {
-      const params = new URLSearchParams(endpoint.split('?')[1]);
-      const floor_id = params.get('floor_id') || undefined;
-      const status = params.get('status') || undefined;
-      const desk_type = params.get('desk_type') || undefined;
-      const data = await mockFloorPlanApiService.getDesks({ floor_id, status, desk_type });
-      return { success: true, data: data as T };
-    }
-    
-    if (endpoint === '/bookings' && options.method === 'POST') {
-      const body = JSON.parse(options.body as string);
-      const data = await mockFloorPlanApiService.createBooking(body);
-      return { success: true, data: data as T };
-    }
-    
-    if (endpoint === '/bookings' && options.method !== 'POST' && options.method !== 'PUT' && options.method !== 'DELETE') {
-      const params = new URLSearchParams(endpoint.split('?')[1]);
-      const user_id = params.get('user_id') || undefined;
-      const date = params.get('date') || undefined;
-      const desk_id = params.get('desk_id') || undefined;
-      const data = await mockFloorPlanApiService.getBookings({ user_id, date, desk_id });
-      return { success: true, data: data as T };
-    }
-    
-    if (endpoint.startsWith('/bookings/') && options.method === 'DELETE') {
-      const bookingId = endpoint.split('/')[2];
-      await mockFloorPlanApiService.deleteBooking(bookingId);
-      return { success: true } as ApiResponse<T>;
-    }
-    
-    throw new Error('Mock endpoint not implemented');
   }
 
   // Buildings API

@@ -14,6 +14,7 @@ import ApiDebugPage from "@/pages/ApiDebugPage";
 import NotFound from "@/pages/NotFound";
 import LoginForm from "@/components/LoginForm";
 import UserManagement from "@/components/UserManagement";
+import UserProfile from '@/components/UserProfile';
 
 const queryClient = new QueryClient();
 
@@ -126,6 +127,14 @@ const App = () => (
                   <ProtectedRoute>
                     <AppLayout>
                       <UserManagement />
+                    </AppLayout>
+                  </ProtectedRoute>
+                } />
+                
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <AppLayout>
+                      <UserProfile />
                     </AppLayout>
                   </ProtectedRoute>
                 } />

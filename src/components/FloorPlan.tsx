@@ -15,7 +15,7 @@ import floorPlanService from '@/services/floorPlanService';
 import { seats as localSeats, deskAreas as localDeskAreas, officeLayout as localOfficeLayout } from '@/data/floorPlanData';
 
 // Equipment filter options
-const EQUIPMENT_OPTIONS = ["Monitor", "Dock", "Window Seat"];
+const EQUIPMENT_OPTIONS = ["Monitor", "Dock", "Window Seat","Gate1","Gate2"];
 
 const FloorPlan = () => {
   const isMobile = useIsMobile();
@@ -1296,8 +1296,14 @@ const FloorPlan = () => {
           return newSet;
         });
       } else {
-        // Single select: select only this seat
-        setSelectedSeats(new Set([seatId]));
+        // Single select: toggle selection if already selected
+        setSelectedSeats(prev => {
+          if (prev.has(seatId) && prev.size === 1) {
+            return new Set(); // Deselect last
+          } else {
+            return new Set([seatId]);
+          }
+        });
       }
     } else {
       // Non-edit mode: only allow clicking available seats for booking
@@ -1497,6 +1503,53 @@ Your booking has been confirmed and saved to the database!`;
     }
   };
 
+  // Handler to change seat ID
+  const handleSeatIdChange = (oldId: string, newId: string) => {
+    if (!newId || oldId === newId) return;
+    // Prevent duplicate IDs
+    if (seats.some(s => s.id === newId) || newSeats.some(s => s.id === newId)) return;
+    // Update in seats
+    setNewSeats(prev => prev.map(s => s.id === oldId ? { ...s, id: newId } : s));
+    setSeatPositions(prev => {
+      const updated = { ...prev };
+      if (updated[oldId]) {
+        updated[newId] = updated[oldId];
+        delete updated[oldId];
+      }
+      return updated;
+    });
+    setNewSeatPositions(prev => {
+      const updated = { ...prev };
+      if (updated[oldId]) {
+        updated[newId] = updated[oldId];
+        delete updated[oldId];
+      }
+      return updated;
+    });
+    setSelectedSeats(prev => {
+      const updated = new Set(prev);
+      if (updated.has(oldId)) {
+        updated.delete(oldId);
+        updated.add(newId);
+      }
+      return updated;
+    });
+    if (editingSeat === oldId) setEditingSeat(newId);
+  };
+
+  // Handler to change seat equipment
+  const handleSeatEquipmentChange = (seatId: string, equipment: string[]) => {
+    setNewSeats(prev => prev.map(s => s.id === seatId ? { ...s, equipment } : s));
+    // If editing an existing seat, update in seats as well (if needed)
+    setFloorPlan(fp => {
+      if (!fp) return fp;
+      return {
+        ...fp,
+        seats: fp.seats.map(s => s.id === seatId ? { ...s, equipment } : s)
+      };
+    });
+  };
+
   return (
     <div className="space-y-4 md:space-y-6">
       {/* Floor Plan Title and Controls */}
@@ -1522,25 +1575,9 @@ Your booking has been confirmed and saved to the database!`;
 
           
           {/* Admin Edit Mode Checkbox - Always Visible */}
-          {user?.role === 'ADMIN' && (
+          {user?.role === 'ADMIN' && false && (
             <div className="flex items-center space-x-2 p-3 bg-purple-50 border-2 border-purple-300 rounded-lg shadow-sm">
-              <Checkbox
-                id="edit-mode-admin"
-                checked={isEditMode}
-                onCheckedChange={(checked) => {
-                  setIsEditMode(checked as boolean);
-                  setEditingSeat(null);
-                  setSelectedSeat(null);
-                }}
-              />
-              <label htmlFor="edit-mode-admin" className="text-sm font-medium text-purple-800 cursor-pointer">
-                ✏️ Edit Floor Plan Mode
-              </label>
-              {isEditMode && (
-                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 text-xs">
-                  ACTIVE
-                </Badge>
-              )}
+              {/* Checkbox and label removed */}
             </div>
           )}
           
@@ -2211,7 +2248,54 @@ Your booking has been confirmed and saved to the database!`;
                   {/* Seat Position Controls */}
                   {(editingSeat || selectedSeats.size > 0) && (
                     <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">Seat Position</h4>
+                      <h4 className="text-sm font-medium text-muted-foreground">Seat Position & Details</h4>
+                      {/* Seat ID Edit - only for single select */}
+                      {(editingSeat || selectedSeats.size === 1) && selectedSeats.size <= 1 && (
+                        <div className="flex gap-2 items-center">
+                          <label className="text-xs">Seat ID:</label>
+                          <input
+                            type="text"
+                            value={editingSeat ? (seats.find(s => s.id === editingSeat)?.id || newSeats.find(s => s.id === editingSeat)?.id || '') :
+                                   selectedSeats.size === 1 ? (seats.find(s => s.id === Array.from(selectedSeats)[0])?.id || newSeats.find(s => s.id === Array.from(selectedSeats)[0])?.id || '') : ''}
+                            onChange={(e) => {
+                              const newId = e.target.value;
+                              if (editingSeat) {
+                                handleSeatIdChange(editingSeat, newId);
+                              } else if (selectedSeats.size === 1) {
+                                handleSeatIdChange(Array.from(selectedSeats)[0], newId);
+                              }
+                            }}
+                            className="w-24 px-2 py-1 text-xs border border-input rounded bg-background"
+                          />
+                        </div>
+                      )}
+                      {/* Equipment Edit - multi-select aware */}
+                      <div className="flex gap-2 items-center">
+                        <label className="text-xs">Equipment:</label>
+                        <input
+                          type="text"
+                          value={(() => {
+                            const ids = editingSeat ? [editingSeat] : Array.from(selectedSeats);
+                            if (ids.length === 0) return '';
+                            const allEquipment = ids.map(id => (seats.find(s => s.id === id)?.equipment || newSeats.find(s => s.id === id)?.equipment || []));
+                            const first = allEquipment[0]?.join(', ') || '';
+                            const allSame = allEquipment.every(eq => eq.join(',') === allEquipment[0].join(','));
+                            return allSame ? first : '';
+                          })()}
+                          onChange={(e) => {
+                            const eqList = e.target.value.split(',').map(s => s.trim()).filter(Boolean);
+                            const ids = editingSeat ? [editingSeat] : Array.from(selectedSeats);
+                            ids.forEach(id => handleSeatEquipmentChange(id, eqList));
+                          }}
+                          className="w-40 px-2 py-1 text-xs border border-input rounded bg-background"
+                          placeholder={(() => {
+                            const ids = editingSeat ? [editingSeat] : Array.from(selectedSeats);
+                            if (ids.length > 1) return 'Multiple values';
+                            return 'Monitor, Dock, Window Seat';
+                          })()}
+                        />
+                      </div>
+                      {/* X, Y, Rot Controls */}
                       <div className="flex gap-2">
                         <div className="flex items-center gap-1">
                           <label className="text-xs">X:</label>
@@ -2247,8 +2331,6 @@ Your booking has been confirmed and saved to the database!`;
                             step="0.1"
                           />
                         </div>
-                      </div>
-                      <div className="flex gap-2">
                         <div className="flex items-center gap-1">
                           <label className="text-xs">Rot:</label>
                           <input
@@ -2555,7 +2637,13 @@ Your booking has been confirmed and saved to the database!`;
                         });
                       } else {
                         // Single select: select only this desk area
-                        setSelectedDeskAreas(new Set([area.id]));
+                        setSelectedDeskAreas(prev => {
+                          if (prev.has(area.id) && prev.size === 1) {
+                            return new Set(); // Deselect last
+                          } else {
+                            return new Set([area.id]);
+                          }
+                        });
                         handleDeskAreaClick(area.id);
                       }
                     }
@@ -2652,7 +2740,13 @@ Your booking has been confirmed and saved to the database!`;
                       });
                     } else {
                       // Single select: select only this desk area
-                      setSelectedDeskAreas(new Set([area.id]));
+                      setSelectedDeskAreas(prev => {
+                        if (prev.has(area.id) && prev.size === 1) {
+                          return new Set(); // Deselect last
+                        } else {
+                          return new Set([area.id]);
+                        }
+                      });
                       handleDeskAreaClick(area.id);
                     }
                   }
@@ -3283,6 +3377,58 @@ Your booking has been confirmed and saved to the database!`;
         </div>
       )}
 
+      {/* Seat Edit Panel (Edit Mode) */}
+      {isEditMode && selectedSeats.size === 1 && (() => {
+        const seatId = Array.from(selectedSeats)[0];
+        const seat = seats.find(s => s.id === seatId) || newSeats.find(s => s.id === seatId);
+        if (!seat) return null;
+        return (
+          <Card className="p-4 border-accent mb-4">
+            <div className="flex flex-col gap-3">
+              <div>
+                <label className="text-xs font-medium">Seat ID</label>
+                <input
+                  type="text"
+                  value={seat.id}
+                  onChange={e => {
+                    const newId = e.target.value;
+                    if (newSeats.some(s => s.id === seatId)) {
+                      setNewSeats(prev => prev.map(s => s.id === seatId ? { ...s, id: newId } : s));
+                      setSelectedSeats(new Set([newId]));
+                    } else {
+                      setSeatPositions(prev => {
+                        const updated = { ...prev };
+                        updated[newId] = updated[seatId];
+                        delete updated[seatId];
+                        return updated;
+                      });
+                      setSelectedSeats(new Set([newId]));
+                      setFloorPlan(fp => fp ? { ...fp, seats: fp.seats.map(s => s.id === seatId ? { ...s, id: newId } : s) } : fp);
+                    }
+                  }}
+                  className="w-full px-2 py-1 text-xs border border-input rounded bg-background"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium">Equipment (comma separated)</label>
+                <input
+                  type="text"
+                  value={seat.equipment?.join(', ') || ''}
+                  onChange={e => {
+                    const eqList = e.target.value.split(',').map(eq => eq.trim()).filter(Boolean);
+                    if (newSeats.some(s => s.id === seatId)) {
+                      setNewSeats(prev => prev.map(s => s.id === seatId ? { ...s, equipment: eqList } : s));
+                    } else {
+                      setFloorPlan(fp => fp ? { ...fp, seats: fp.seats.map(s => s.id === seatId ? { ...s, equipment: eqList } : s) } : fp);
+                    }
+                  }}
+                  className="w-full px-2 py-1 text-xs border border-input rounded bg-background"
+                />
+              </div>
+            </div>
+          </Card>
+        );
+      })()}
 
     </div>
   );

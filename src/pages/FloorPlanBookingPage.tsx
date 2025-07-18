@@ -22,6 +22,10 @@ const FloorPlanBookingPage: React.FC = () => {
   const [isLoadingBookings, setIsLoadingBookings] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  // Add state for today and upcoming bookings
+  const [todayBookings, setTodayBookings] = useState<Booking[]>([]);
+  const [upcomingBookings, setUpcomingBookings] = useState<Booking[]>([]);
+  const [historyBookings, setHistoryBookings] = useState<Booking[]>([]);
 
   // Load buildings on component mount
   useEffect(() => {
@@ -80,18 +84,29 @@ const FloorPlanBookingPage: React.FC = () => {
     }
   };
 
+  // Update loadMyBookings to use the dashboard endpoint if available
   const loadMyBookings = async () => {
     if (!user) return;
-    
     try {
       setIsLoadingBookings(true);
-      const bookings = await floorPlanApiService.getBookings({ 
-        user_id: user.id, 
-        date: selectedDate 
+      const response = await fetch(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'}/bookings/user/${user.id}/dashboard`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
-      setMyBookings(bookings);
+      const data = await response.json();
+      if (data.success && data.data) {
+        setTodayBookings(data.data.today?.bookings || []);
+        setUpcomingBookings(data.data.upcoming?.bookings || []);
+        setHistoryBookings(data.data.history?.bookings || []);
+      } else {
+        setTodayBookings([]);
+        setUpcomingBookings([]);
+        setHistoryBookings([]);
+      }
     } catch (err) {
       console.error('Failed to load bookings:', err);
+      setTodayBookings([]);
+      setUpcomingBookings([]);
+      setHistoryBookings([]);
     } finally {
       setIsLoadingBookings(false);
     }
@@ -233,36 +248,68 @@ const FloorPlanBookingPage: React.FC = () => {
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="w-4 h-4 animate-spin" />
                 </div>
-              ) : myBookings.length === 0 ? (
-                <p className="text-gray-500 text-sm">No bookings for this date</p>
               ) : (
-                <div className="space-y-3">
-                  {myBookings.map((booking) => (
-                    <div
-                      key={booking.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium text-sm">
-                          Desk {booking.desk?.desk_number}
-                        </div>
-                        <div className="text-xs text-gray-600">
-                          {formatTime(booking.start_time)} - {formatTime(booking.end_time)}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {booking.desk?.floor.name}
-                        </div>
+                <>
+                  <div className="mb-4">
+                    <div className="font-semibold text-sm mb-1">Today's Bookings</div>
+                    {todayBookings.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No bookings for today</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {todayBookings.map((booking) => (
+                          <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">Desk {booking.desk?.desk_number}</div>
+                              <div className="text-xs text-gray-600">{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</div>
+                              <div className="text-xs text-gray-500">{booking.desk?.floor.name}</div>
+                              <div className="text-xs text-gray-500">Booked by: {booking.user_id}</div>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)}>Cancel</Button>
+                          </div>
+                        ))}
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleCancelBooking(booking.id)}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm mb-1">Upcoming Bookings</div>
+                    {upcomingBookings.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No upcoming bookings</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {upcomingBookings.map((booking) => (
+                          <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">Desk {booking.desk?.desk_number}</div>
+                              <div className="text-xs text-gray-600">{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</div>
+                              <div className="text-xs text-gray-500">{booking.desk?.floor.name}</div>
+                              <div className="text-xs text-gray-500">Booked by: {booking.user_id}</div>
+                            </div>
+                            <Button variant="outline" size="sm" onClick={() => handleCancelBooking(booking.id)}>Cancel</Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-4">
+                    <div className="font-semibold text-sm mb-1">History</div>
+                    {historyBookings.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No past bookings</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {historyBookings.map((booking) => (
+                          <div key={booking.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">Desk {booking.desk?.desk_number}</div>
+                              <div className="text-xs text-gray-600">{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</div>
+                              <div className="text-xs text-gray-500">{booking.desk?.floor.name}</div>
+                              <div className="text-xs text-gray-500">Booked by: {booking.user_id}</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>

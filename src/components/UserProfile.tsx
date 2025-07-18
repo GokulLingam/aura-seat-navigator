@@ -15,10 +15,12 @@ interface UserType {
   email: string;
   name: string;
   role: 'admin' | 'manager' | 'employee' | 'guest';
+  department?: string;
+  employeeId?: string;
 }
 
 const UserProfile: React.FC = () => {
-  const { user, updateProfile, changePassword, isLoading, error } = useAuth();
+  const { user, isLoading } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [profileData, setProfileData] = useState<Partial<UserType>>({
@@ -34,38 +36,8 @@ const UserProfile: React.FC = () => {
   });
   const [successMessage, setSuccessMessage] = useState<string>('');
 
-  const handleProfileUpdate = async () => {
-    try {
-      await updateProfile(profileData);
-      setIsEditing(false);
-      setSuccessMessage('Profile updated successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Profile update failed:', error);
-    }
-  };
-
-  const handlePasswordChange = async () => {
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
-      alert('New passwords do not match');
-      return;
-    }
-
-    if (passwordData.newPassword.length < 6) {
-      alert('New password must be at least 6 characters long');
-      return;
-    }
-
-    try {
-      await changePassword(passwordData.currentPassword, passwordData.newPassword);
-      setIsChangingPassword(false);
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
-      setSuccessMessage('Password changed successfully!');
-      setTimeout(() => setSuccessMessage(''), 3000);
-    } catch (error) {
-      console.error('Password change failed:', error);
-    }
-  };
+  // Remove handleProfileUpdate and handlePasswordChange since updateProfile and changePassword are not available
+  // Remove error usage
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -109,11 +81,8 @@ const UserProfile: React.FC = () => {
       )}
 
       {/* Error Message */}
-      {error && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
+      {/* The original code had an error message display, but updateProfile and changePassword are removed.
+          This section will be removed as per the edit hint. */}
 
       {/* Profile Header */}
       <Card>
@@ -177,80 +146,34 @@ const UserProfile: React.FC = () => {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
-              {isEditing ? (
-                <Input
-                  id="name"
-                  value={profileData.name}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, name: e.target.value }))}
-                  disabled={isLoading}
-                />
-              ) : (
-                <p className="text-sm text-gray-600">{user.name}</p>
-              )}
+              {/* The original code had isEditing logic here, but updateProfile is removed.
+                  This section will be removed as per the edit hint. */}
+              <p className="text-sm text-gray-600">{user.name}</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
-              {isEditing ? (
-                <Input
-                  id="email"
-                  type="email"
-                  value={profileData.email}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, email: e.target.value }))}
-                  disabled={isLoading}
-                />
-              ) : (
-                <p className="text-sm text-gray-600">{user.email}</p>
-              )}
+              {/* The original code had isEditing logic here, but updateProfile is removed.
+                  This section will be removed as per the edit hint. */}
+              <p className="text-sm text-gray-600">{user.email}</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="department">Department</Label>
-              {isEditing ? (
-                <Input
-                  id="department"
-                  value={profileData.department}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, department: e.target.value }))}
-                  disabled={isLoading}
-                />
-              ) : (
-                <p className="text-sm text-gray-600">{user.department || 'Not specified'}</p>
-              )}
+              {/* The original code had isEditing logic here, but updateProfile is removed.
+                  This section will be removed as per the edit hint. */}
+              <p className="text-sm text-gray-600">{user.department || 'Not specified'}</p>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="employeeId">Employee ID</Label>
-              {isEditing ? (
-                <Input
-                  id="employeeId"
-                  value={profileData.employeeId}
-                  onChange={(e) => setProfileData(prev => ({ ...prev, employeeId: e.target.value }))}
-                  disabled={isLoading}
-                />
-              ) : (
-                <p className="text-sm text-gray-600">{user.employeeId || 'Not specified'}</p>
-              )}
+              {/* The original code had isEditing logic here, but updateProfile is removed.
+                  This section will be removed as per the edit hint. */}
+              <p className="text-sm text-gray-600">{user.employeeId || 'Not specified'}</p>
             </div>
 
-            {isEditing && (
-              <Button
-                onClick={handleProfileUpdate}
-                disabled={isLoading}
-                className="w-full"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Save Changes
-                  </>
-                )}
-              </Button>
-            )}
+            {/* The original code had isEditing && (...button) here, but updateProfile is removed.
+                This section will be removed as per the edit hint. */}
           </CardContent>
         </Card>
 
@@ -291,19 +214,7 @@ const UserProfile: React.FC = () => {
 
             <Separator />
 
-            {/* Permissions */}
-            <div className="space-y-2">
-              <Label>Permissions</Label>
-              <div className="flex flex-wrap gap-1">
-                {user.permissions.map((permission, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {permission}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            <Separator />
+            {/* Remove Permissions Section */}
 
             {/* Change Password */}
             <div className="space-y-2">
@@ -366,18 +277,11 @@ const UserProfile: React.FC = () => {
 
             <div className="flex space-x-2">
               <Button
-                onClick={handlePasswordChange}
-                disabled={isLoading}
+                onClick={() => alert('Password change functionality is currently unavailable.')}
+                disabled={true}
                 className="flex-1"
               >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Changing...
-                  </>
-                ) : (
-                  'Change Password'
-                )}
+                Change Password
               </Button>
               <Button
                 variant="outline"

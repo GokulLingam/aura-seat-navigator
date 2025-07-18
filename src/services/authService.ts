@@ -132,14 +132,8 @@ class AuthService {
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
-    // Use mock API for development
-    if (process.env.NODE_ENV === 'development') {
-      return this.mockApiRequest<T>(endpoint, options);
-    }
-
     const url = `${API_BASE_URL}${endpoint}`;
     const token = this.getToken();
-
     const config: RequestInit = {
       headers: {
         'Content-Type': 'application/json',
@@ -148,15 +142,12 @@ class AuthService {
       },
       ...options,
     };
-
     try {
       const response = await fetch(url, config);
-      
       if (response.status === 401) {
         // Token expired, try to refresh
         const refreshed = await this.refreshToken();
         if (refreshed) {
-          // Retry the original request with new token
           config.headers = {
             ...config.headers,
             Authorization: `Bearer ${this.getToken()}`,
@@ -167,77 +158,16 @@ class AuthService {
           }
           return await retryResponse.json();
         } else {
-          // Refresh failed, logout user
           await this.logout();
           throw new Error('Authentication expired. Please login again.');
         }
       }
-
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-
       return await response.json();
     } catch (error) {
       console.error('API request failed:', error);
-      throw error;
-    }
-  }
-
-  // Mock API request helper for development
-  private async mockApiRequest<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<T> {
-    const { mockAuthAPI } = await import('./mockAuthService');
-    
-    try {
-      switch (endpoint) {
-        case AUTH_ENDPOINTS.LOGIN:
-          const credentials = JSON.parse(options.body as string);
-          return await mockAuthAPI.login(credentials) as T;
-        
-        case AUTH_ENDPOINTS.LOGOUT:
-          return await mockAuthAPI.logout() as T;
-        
-        case AUTH_ENDPOINTS.REFRESH:
-          const { refreshToken } = JSON.parse(options.body as string);
-          return await mockAuthAPI.refreshToken(refreshToken) as T;
-        
-        case AUTH_ENDPOINTS.VERIFY:
-          const token = this.getToken();
-          if (!token) throw new Error('No token provided');
-          return await mockAuthAPI.verifyToken(token) as T;
-        
-        case AUTH_ENDPOINTS.PROFILE:
-          if (options.method === 'PUT') {
-            const updates = JSON.parse(options.body as string);
-            return await mockAuthAPI.updateProfile(updates) as T;
-          } else {
-            return await mockAuthAPI.getProfile() as T;
-          }
-        
-        case AUTH_ENDPOINTS.CHANGE_PASSWORD:
-          const { currentPassword, newPassword } = JSON.parse(options.body as string);
-          return await mockAuthAPI.changePassword(currentPassword, newPassword) as T;
-        
-        case AUTH_ENDPOINTS.FORGOT_PASSWORD:
-          const { email } = JSON.parse(options.body as string);
-          return await mockAuthAPI.forgotPassword(email) as T;
-        
-        case AUTH_ENDPOINTS.RESET_PASSWORD:
-          const resetData = JSON.parse(options.body as string);
-          return await mockAuthAPI.resetPassword(resetData.token, resetData.newPassword) as T;
-        
-        case AUTH_ENDPOINTS.REGISTER:
-          const userData = JSON.parse(options.body as string);
-          return await mockAuthAPI.register(userData) as T;
-        
-        default:
-          throw new Error(`Unknown endpoint: ${endpoint}`);
-      }
-    } catch (error) {
-      console.error('Mock API request failed:', error);
       throw error;
     }
   }

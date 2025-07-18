@@ -78,10 +78,17 @@ interface Resource {
 class ApiService {
   private baseURL: string;
   private token: string | null = null;
+  private refreshTokenValue: string | null = null;
+  private user: User | null = null;
 
   constructor() {
     this.baseURL = API_BASE_URL;
     this.token = localStorage.getItem('token');
+    this.refreshTokenValue = localStorage.getItem('refreshToken');
+    const userData = localStorage.getItem('user');
+    if (userData) {
+      this.user = JSON.parse(userData);
+    }
   }
 
   private async request<T>(
@@ -127,9 +134,7 @@ class ApiService {
 
   // Authentication methods
   async login(credentials: LoginRequest): Promise<LoginResponse> {
-    // For login, we don't want to include the Authorization header
     const url = `${this.baseURL}/auth/login`;
-    
     const requestOptions = {
       method: 'POST',
       headers: {
@@ -137,31 +142,21 @@ class ApiService {
       },
       body: JSON.stringify(credentials),
     };
-
     apiDebug.logRequest(url, requestOptions);
-
     try {
       const response = await fetch(url, requestOptions);
       const data = await response.json();
-
       apiDebug.logResponse(response, data);
-
       if (!response.ok) {
         apiDebug.logError(data, `Login failed with status ${response.status}`);
         throw new Error(data.message || `Login failed with status ${response.status}`);
       }
-
-      // Handle different response formats
       let loginData: LoginResponse;
-      
       if (data.success && data.data) {
-        // Format: { success: true, data: { user, token, ... } }
         loginData = data.data;
       } else if (data.user && data.token) {
-        // Format: { user, token, refreshToken, ... }
         loginData = data;
       } else if (data.success && data.user) {
-        // Format: { success: true, user, token, ... }
         loginData = {
           user: data.user,
           token: data.token,
@@ -170,29 +165,19 @@ class ApiService {
           message: data.message || 'Login successful'
         };
       } else {
-        // Fallback to mock authentication for development
-        apiDebug.log('Using mock authentication fallback');
-        const mockUser = this.getMockUser(credentials.email);
-        loginData = {
-          user: mockUser,
-          token: 'mock-jwt-token-' + Date.now(),
-          refreshToken: 'mock-refresh-token-' + Date.now(),
-          expiresIn: 3600,
-          message: 'Mock authentication successful'
-        };
+        throw new Error('Unexpected login response format');
       }
-
-      // Store authentication data
       this.token = loginData.token;
+      this.refreshTokenValue = loginData.refreshToken;
+      this.user = loginData.user;
+      // Persist to localStorage
       localStorage.setItem('token', loginData.token);
       localStorage.setItem('refreshToken', loginData.refreshToken);
       localStorage.setItem('user', JSON.stringify(loginData.user));
       localStorage.setItem('isAuthenticated', 'true');
-      apiDebug.log('Login successful', { user: loginData.user.email });
-
       return loginData;
     } catch (error) {
-      apiDebug.logError(error, 'Login request failed');
+      apiDebug.logError(error, 'Login failed');
       throw error;
     }
   }
@@ -206,6 +191,8 @@ class ApiService {
       console.error('Logout error:', error);
     } finally {
       this.token = null;
+      this.refreshTokenValue = null;
+      this.user = null;
       localStorage.removeItem('token');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
@@ -214,7 +201,7 @@ class ApiService {
   }
 
   async refreshToken(): Promise<void> {
-    const refreshToken = localStorage.getItem('refreshToken');
+    const refreshToken = this.refreshTokenValue;
     if (!refreshToken) {
       throw new Error('No refresh token available');
     }
@@ -224,16 +211,40 @@ class ApiService {
       body: JSON.stringify({ refreshToken }),
     });
 
-    if (response.success && response.data) {
-      this.token = response.data.token;
-      localStorage.setItem('token', response.data.token);
-      localStorage.setItem('refreshToken', response.data.refreshToken);
+    // Log the raw response
+    console.log('refreshToken raw response:', response);
+
+    // Try to access token in both possible locations
+    const token = response.data?.token ?? (response as any).token;
+    const newRefreshToken = response.data?.refreshToken ?? (response as any).refreshToken;
+
+    if (!token || !newRefreshToken) {
+      throw new Error('Token or refreshToken not found in refreshToken response');
     }
+
+    this.token = token;
+    this.refreshTokenValue = newRefreshToken;
+    localStorage.setItem('token', token);
+    localStorage.setItem('refreshToken', newRefreshToken);
+
+    // Immediately verify the new token and update user
+    const user = await this.verifyToken();
+    this.user = user;
+    localStorage.setItem('user', JSON.stringify(user));
   }
 
   async verifyToken(): Promise<User> {
     const response = await this.request<{ valid: boolean; user: User }>('/auth/verify');
-    return response.data!.user;
+    // Log the raw response
+    console.log('verifyToken raw response:', response);
+    // Try to access user in both possible locations
+    if (response.data && response.data.user) {
+      return response.data.user;
+    } else if ((response as any).user) {
+      return (response as any).user;
+    } else {
+      throw new Error('User not found in verifyToken response');
+    }
   }
 
   async getProfile(): Promise<User> {
@@ -304,11 +315,28 @@ class ApiService {
     permissions?: string[];
     isActive?: boolean;
   }): Promise<any> {
-    const response = await this.request<{ user: any }>('/admin/users', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-    });
-    return response.data?.user;
+    try {
+      const response = await this.request<{ user: any }>('/admin/users', {
+        method: 'POST',
+        body: JSON.stringify(userData),
+      });
+      return response.data?.user;
+    } catch (error: any) {
+      // Try to extract detailed error message from backend
+      let errorMsg = 'Failed to create user';
+      if (error?.response) {
+        try {
+          const data = await error.response.json();
+          errorMsg = data.message || data.error || errorMsg;
+          if (data.errors) {
+            errorMsg += ': ' + Object.values(data.errors).join(', ');
+          }
+        } catch {}
+      } else if (error instanceof Error) {
+        errorMsg = error.message;
+      }
+      throw new Error(errorMsg);
+    }
   }
 
   async updateUser(userId: string, userData: {
@@ -477,53 +505,6 @@ class ApiService {
       apiDebug.logError(error, 'Health check failed');
       return false;
     }
-  }
-
-  // Mock user helper for development
-  private getMockUser(email: string): User {
-    const mockUsers: Record<string, User> = {
-      'admin@upsreserve.com': {
-        id: '1',
-        email: 'admin@upsreserve.com',
-        name: 'Admin User',
-        role: 'ADMIN',
-        department: 'IT',
-        employeeId: 'EMP001',
-        permissions: ['seat:read', 'seat:write', 'seat:delete', 'user:read', 'user:write', 'user:delete', 'floor:read', 'floor:write', 'floor:delete', 'booking:read', 'booking:write', 'booking:delete', 'admin:all'],
-        isActive: true
-      },
-      'manager@upsreserve.com': {
-        id: '2',
-        email: 'manager@upsreserve.com',
-        name: 'Manager User',
-        role: 'manager',
-        department: 'Operations',
-        employeeId: 'EMP002',
-        permissions: ['seat:read', 'seat:write', 'user:read', 'floor:read', 'floor:write', 'booking:read', 'booking:write', 'booking:delete'],
-        isActive: true
-      },
-      'employee@upsreserve.com': {
-        id: '3',
-        email: 'employee@upsreserve.com',
-        name: 'Employee User',
-        role: 'employee',
-        department: 'Engineering',
-        employeeId: 'EMP003',
-        permissions: ['seat:read', 'booking:read', 'booking:write'],
-        isActive: true
-      }
-    };
-
-    return mockUsers[email] || {
-      id: '4',
-      email: email,
-      name: 'Demo User',
-      role: 'employee',
-      department: 'General',
-      employeeId: 'EMP004',
-      permissions: ['seat:read', 'booking:read', 'booking:write'],
-      isActive: true
-    };
   }
 
   // Public request method for other services

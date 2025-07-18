@@ -25,24 +25,48 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider = ({ children }: AuthProviderProps) => {
-  const [user, setUser] = useState<User | null>(null);
+  // Use user from localStorage as initial state
+  const [user, setUser] = useState<User | null>(() => {
+    const userData = localStorage.getItem('user');
+    return userData ? JSON.parse(userData) : null;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if user is already logged in and verify token
     const checkAuth = async () => {
       try {
         if (apiService.isAuthenticated()) {
-          const userData = await apiService.verifyToken();
-          setUser(userData);
+          try {
+            console.log('[AuthProvider] Calling verifyToken (initial)');
+            const userData = await apiService.verifyToken();
+            console.log('[AuthProvider] verifyToken (initial) result:', userData);
+            setUser(userData);
+            localStorage.setItem('user', JSON.stringify(userData));
+          } catch (verifyError) {
+            console.warn('[AuthProvider] Token verify failed, trying refresh:', verifyError);
+            try {
+              console.log('[AuthProvider] Calling refreshToken');
+              await apiService.refreshToken();
+              console.log('[AuthProvider] refreshToken success, now calling verifyToken (after refresh)');
+              const userData = await apiService.verifyToken();
+              console.log('[AuthProvider] verifyToken (after refresh) result:', userData);
+              setUser(userData);
+              localStorage.setItem('user', JSON.stringify(userData));
+            } catch (refreshError) {
+              console.error('[AuthProvider] Token refresh failed:', refreshError);
+              localStorage.removeItem('token');
+              localStorage.removeItem('refreshToken');
+              localStorage.removeItem('user');
+              localStorage.removeItem('isAuthenticated');
+              setUser(null);
+            }
+          }
+        } else {
+          setUser(null);
         }
       } catch (error) {
-        console.error('Token verification failed:', error);
-        // Clear invalid tokens
-        localStorage.removeItem('token');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('user');
-        localStorage.removeItem('isAuthenticated');
+        console.error('[AuthProvider] Token verification and refresh failed:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
